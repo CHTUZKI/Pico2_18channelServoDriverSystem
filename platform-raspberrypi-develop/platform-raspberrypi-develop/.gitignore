@@ -1,0 +1,5 @@
+*.pyc
+.piolibdeps
+.pio
+board_check_results.json
+*.pio.h

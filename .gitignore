@@ -1,0 +1,49 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+lib/
+.vscode/
+.clang_complete
+.gcc-flags.json
+
+# CMake
+build/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+*.cmake
+
+# 编译产物
+*.o
+*.elf
+*.bin
+*.hex
+*.uf2
+*.dis
+*.map
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 调试文件
+*.log
+*.out
+
+# 临时文件
+*.tmp
+*.bak
+*.old

@@ -1,0 +1,99 @@
+{
+  "name": "raspberrypi",
+  "title": "Raspberry Pi RP2040",
+  "description": "RP2040 is a low-cost, high-performance microcontroller device with a large on-chip memory, symmetric dual-core processor complex, and rich peripheral.",
+  "homepage": "https://www.raspberrypi.org/documentation/rp2040/getting-started/",
+  "license": "Apache-2.0",
+  "keywords": [
+    "dev-platform",
+    "ARM",
+    "Cortex-M",
+    "Raspberry Pi",
+    "RP2040"
+  ],
+  "engines": {
+    "platformio": "^6"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/platformio/platform-raspberrypi.git"
+  },
+  "version": "1.17.0",
+  "frameworks": {
+    "arduino": {
+      "package": "framework-arduino-mbed",
+      "script": "builder/frameworks/arduino/arduino.py"
+    },
+    "picosdk": {
+      "package": "framework-picosdk",
+      "script": "builder/frameworks/picosdk.py"
+    }
+  },
+  "packages": {
+    "toolchain-gccarmnoneeabi": {
+      "type": "toolchain",
+      "owner": "platformio",
+      "version": ">=1.90201.0,<1.90302.0"
+    },
+    "toolchain-rp2040-earlephilhower": {
+      "type": "toolchain", 
+      "optional": true,
+      "owner": "earlephilhower",
+      "version": "https://github.com/maxgerhardt/toolchain-dummy/archive/refs/heads/main.zip"
+    },
+    "toolchain-riscv-rp2350": {
+      "type": "toolchain",
+      "optional": true,
+      "owner": "platformio",
+      "version": "https://github.com/maxgerhardt/toolchain-dummy/archive/refs/heads/main-riscv.zip"
+    },
+    "framework-arduino-mbed": {
+      "type": "framework",
+      "optional": true,
+      "owner": "platformio",
+      "version": "~4.3.1"
+    },
+    "framework-arduinopico": {
+      "type": "framework",
+      "optional": true,
+      "owner": "earlephilhower",
+      "version": "https://github.com/earlephilhower/arduino-pico.git#b87270c12ccb3dca5b43e4b988c53c0a7425be9f"
+    },
+    "framework-picosdk": {
+      "type": "framework",
+      "optional": true,
+      "owner": "platformio",
+      "version": "https://github.com/maxgerhardt/pico-sdk.git#4315984000afe20ac82c78c597a3c4a591f524b0"
+    },
+    "tool-picotool-rp2040-earlephilhower": {
+      "type": "uploader",
+      "optional": false,
+      "owner": "platformio",
+      "version": "https://github.com/maxgerhardt/picotool-dummy/archive/refs/heads/main.zip"
+    },
+    "tool-pioasm-rp2040-earlephilhower": {
+      "type": "uploader",
+      "optional": false,
+      "owner": "platformio",
+      "version": "https://github.com/maxgerhardt/pioasm-dummy/archive/refs/heads/main.zip"
+    },
+    "tool-openocd-rp2040-earlephilhower": {
+      "type": "uploader",
+      "optional": true,
+      "owner": "earlephilhower",
+      "version": "~5.100300.0"
+    },
+    "tool-jlink": {
+      "type": "uploader",
+      "optional": true,
+      "owner": "platformio",
+      "version": "^1.81206.0"
+    },
+    "tool-mklittlefs-rp2040-earlephilhower": {
+      "type": "uploader",
+      "optional": true,
+      "owner": "earlephilhower",
+      "version": "~5.100300.0"
+    }
+  }
+}

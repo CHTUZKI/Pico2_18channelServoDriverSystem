@@ -1,0 +1,179 @@
+/**
+ * @file pwm_driver.c
+ * @brief 18路PWM驱动实现（硬件PWM）
+ * @date 2025-10-21
+ */
+
+#include "pwm/pwm_driver.h"
+#include "config/pinout.h"
+#include "utils/error_handler.h"
+#include "pico/stdlib.h"
+#include "hardware/pwm.h"
+#include "hardware/clocks.h"
+#include <string.h>
+
+// PWM通道配置表
+static pwm_channel_t g_pwm_channels[SERVO_COUNT];
+
+// 硬件PWM配置
+#define HW_PWM_WRAP     40000   // PWM计数器最大值 (对应20ms @ 2MHz时钟)
+#define HW_PWM_FREQ     2000000 // PWM时钟频率 2MHz (0.5μs分辨率)
+
+/**
+ * @brief 初始化硬件PWM通道
+ * @param gpio GPIO引脚
+ * @param channel 通道配置
+ * @return true 成功
+ */
+static bool init_hardware_pwm(uint8_t gpio, pwm_channel_t *channel) {
+    // 获取PWM切片和通道
+    uint slice_num = pwm_gpio_to_slice_num(gpio);
+    uint chan = pwm_gpio_to_channel(gpio);
+    
+    // 配置GPIO为PWM功能
+    gpio_set_function(gpio, GPIO_FUNC_PWM);
+    
+    // 获取PWM配置
+    pwm_config config = pwm_get_default_config();
+    
+    // 计算分频器: 系统时钟 / 分频器 = 2MHz
+    // 假设系统时钟125MHz: 125MHz / 62.5 = 2MHz
+    float div = (float)clock_get_hz(clk_sys) / HW_PWM_FREQ;
+    pwm_config_set_clkdiv(&config, div);
+    
+    // 设置PWM周期 (20ms = 40000 个 0.5μs)
+    pwm_config_set_wrap(&config, HW_PWM_WRAP - 1);
+    
+    // 应用配置
+    pwm_init(slice_num, &config, false);  // 先不启动
+    
+    // 设置初始占空比为0
+    pwm_set_chan_level(slice_num, chan, 0);
+    
+    // 保存配置信息
+    channel->slice = slice_num;
+    channel->channel = chan;
+    
+    return true;
+}
+
+bool pwm_init_all(void) {
+    // 初始化所有通道配置
+    for (int i = 0; i < SERVO_COUNT; i++) {
+        g_pwm_channels[i].gpio = SERVO_PINS[i];
+        g_pwm_channels[i].pulse_us = SERVO_CENTER_PULSE_US;
+        g_pwm_channels[i].enabled = false;
+        
+        // 全部使用硬件PWM
+        if (!init_hardware_pwm(SERVO_PINS[i], &g_pwm_channels[i])) {
+            error_set(ERROR_SYSTEM_INIT);
+            return false;
+        }
+    }
+    
+    // 启动所有PWM切片（统一启动，保证同步）
+    for (int slice = 0; slice < 8; slice++) {
+        pwm_set_enabled(slice, true);
+    }
+    
+    return true;
+}
+
+bool pwm_set_pulse(uint8_t channel, uint16_t pulse_us) {
+    if (channel >= SERVO_COUNT) {
+        return false;
+    }
+    
+    // 限制脉宽范围
+    if (pulse_us < SERVO_MIN_PULSE_US) {
+        pulse_us = SERVO_MIN_PULSE_US;
+    }
+    if (pulse_us > SERVO_MAX_PULSE_US) {
+        pulse_us = SERVO_MAX_PULSE_US;
+    }
+    
+    g_pwm_channels[channel].pulse_us = pulse_us;
+    
+    // 转换μs到PWM计数值
+    // pulse_us * 2 因为时钟是0.5μs分辨率
+    uint16_t level = pulse_us * 2;
+    
+    uint slice = g_pwm_channels[channel].slice;
+    uint chan = g_pwm_channels[channel].channel;
+    
+    if (g_pwm_channels[channel].enabled) {
+        pwm_set_chan_level(slice, chan, level);
+    } else {
+        pwm_set_chan_level(slice, chan, 0);
+    }
+    
+    return true;
+}
+
+bool pwm_set_all_pulses(const uint16_t pulse_us_array[SERVO_COUNT]) {
+    for (int i = 0; i < SERVO_COUNT; i++) {
+        if (!pwm_set_pulse(i, pulse_us_array[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void pwm_enable_channel(uint8_t channel, bool enable) {
+    if (channel >= SERVO_COUNT) {
+        return;
+    }
+    
+    g_pwm_channels[channel].enabled = enable;
+    
+    // 更新PWM输出
+    uint slice = g_pwm_channels[channel].slice;
+    uint chan = g_pwm_channels[channel].channel;
+    
+    if (enable) {
+        // 使能：输出当前脉宽
+        uint16_t level = g_pwm_channels[channel].pulse_us * 2;
+        pwm_set_chan_level(slice, chan, level);
+    } else {
+        // 禁用：输出0
+        pwm_set_chan_level(slice, chan, 0);
+    }
+}
+
+void pwm_enable_all(bool enable) {
+    for (int i = 0; i < SERVO_COUNT; i++) {
+        pwm_enable_channel(i, enable);
+    }
+}
+
+uint16_t pwm_get_pulse(uint8_t channel) {
+    if (channel >= SERVO_COUNT) {
+        return 0;
+    }
+    return g_pwm_channels[channel].pulse_us;
+}
+
+bool pwm_is_enabled(uint8_t channel) {
+    if (channel >= SERVO_COUNT) {
+        return false;
+    }
+    return g_pwm_channels[channel].enabled;
+}
+
+void pwm_emergency_stop(void) {
+    // 立即禁用所有PWM输出
+    for (int i = 0; i < SERVO_COUNT; i++) {
+        uint slice = g_pwm_channels[i].slice;
+        uint chan = g_pwm_channels[i].channel;
+        pwm_set_chan_level(slice, chan, 0);
+        g_pwm_channels[i].enabled = false;
+    }
+}
+
+const pwm_channel_t* pwm_get_channel_info(uint8_t channel) {
+    if (channel >= SERVO_COUNT) {
+        return NULL;
+    }
+    return &g_pwm_channels[channel];
+}
+
