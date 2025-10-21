@@ -52,23 +52,32 @@ pio device monitor -e pico2
 项目配置文件：`platformio.ini`
 
 关键配置：
-- **平台**: `raspberrypi` (使用maxgerhardt的RP2350支持版本)
-- **板卡**: `rpipico2`
-- **框架**: `arduino` (earlephilhower核心)
-- **库依赖**: FreeRTOS-Kernel (自动下载)
-- **头文件**: 所有include子目录已自动添加
-- **USB**: TinyUSB CDC (内置支持)
+- **平台**: 本地平台文件 (`platform-raspberrypi-develop/`)
+- **板卡**: `rpipico2` (RP2350)
+- **框架**: `picosdk` (Raspberry Pi Pico SDK)
+- **库依赖**: FreeRTOS-Kernel (从GitHub自动下载)
+- **构建脚本**: `scripts/add_freertos.py` (自定义FreeRTOS集成)
+- **USB**: TinyUSB CDC (Pico SDK内置)
 
 ### 依赖说明
 
-PlatformIO会自动处理以下依赖：
-- ✅ Pico SDK (Arduino框架内置)
+项目采用**自定义构建脚本**来集成FreeRTOS SMP：
+
+**自动处理**：
+- ✅ Pico SDK (本地平台包含)
+- ✅ FreeRTOS-Kernel (PlatformIO从GitHub下载)
 - ✅ 硬件PWM库 (hardware/pwm.h)
 - ✅ Flash存储库 (hardware/flash.h)
 - ✅ TinyUSB (USB CDC)
-- ✅ FreeRTOS-Kernel (从GitHub自动下载)
 
-**不需要手动安装CMake或其他工具！**
+**构建脚本** (`scripts/add_freertos.py`) **自动完成**：
+- 检测RP2350芯片并选择正确的FreeRTOS移植层
+- 添加FreeRTOS头文件路径和编译定义
+- 编译FreeRTOS核心组件（tasks, queue, timers等）
+- 配置双核SMP支持
+- 链接必要的Pico SDK组件（hardware_exception等）
+
+**不需要手动配置任何依赖！PlatformIO和构建脚本会自动处理一切。**
 
 ## 通信协议
 
@@ -143,46 +152,57 @@ python test_servo.py --query
 ## 代码结构
 
 ```
-src/
-├── main.c                      # 主程序，FreeRTOS初始化
-├── config/                     # 配置文件
-│   ├── config.h               # 系统参数
-│   └── pinout.h               # GPIO定义
-├── pwm/                        # PWM驱动
-│   ├── pio_pwm.c/h            # 硬件PWM控制
-│   └── servo_pwm.pio          # PIO程序(备用)
-├── servo/                      # 舵机控制
-│   └── servo_control.c/h      # 角度转换、限位
-├── communication/              # 通信模块
-│   ├── usb_handler.c/h        # USB CDC处理
-│   ├── protocol.c/h           # 协议解析
-│   ├── crc16.c/h              # CRC校验
-│   └── commands.c/h           # 命令处理
-├── motion/                     # 运动控制
-│   └── interpolation.c/h      # 插值算法
-├── storage/                    # 存储管理
-│   ├── flash_storage.c/h      # Flash读写
-│   └── param_manager.c/h      # 参数管理
-├── tasks/                      # FreeRTOS任务
-│   ├── task_communication.c/h # 通信任务 (Core 0)
-│   ├── task_motion.c/h        # 运动任务 (Core 0)
-│   └── task_pwm.c/h           # PWM任务 (Core 1)
-└── utils/                      # 工具模块
-    ├── ring_buffer.c/h        # 环形缓冲区
-    └── error_handler.c/h      # 错误处理
+Pico2_18channelServoDriverSystem/
+├── platformio.ini              # PlatformIO配置文件
+├── scripts/
+│   └── add_freertos.py        # FreeRTOS自定义构建脚本
+├── platform-raspberrypi-develop/  # 本地RP2350平台支持
+├── pico-sdk-master/            # Pico SDK (本地)
+├── src/                        # 源代码
+│   ├── main.c                 # 主程序，FreeRTOS初始化
+│   ├── FreeRTOSConfig.h       # FreeRTOS配置文件
+│   ├── communication/         # 通信模块
+│   │   ├── usb_handler.c/h   # USB CDC处理
+│   │   ├── protocol.c/h      # 协议解析
+│   │   ├── crc16.c/h         # CRC校验
+│   │   └── commands.c/h      # 命令处理
+│   ├── pwm/                   # PWM驱动
+│   │   └── pwm_driver.c/h    # 硬件PWM控制
+│   ├── servo/                 # 舵机控制
+│   │   └── servo_control.c/h # 角度转换、限位
+│   ├── motion/                # 运动控制
+│   │   └── interpolation.c/h # 插值算法
+│   ├── storage/               # 存储管理
+│   │   ├── flash_storage.c/h # Flash读写
+│   │   └── param_manager.c/h # 参数管理
+│   ├── tasks/                 # FreeRTOS任务
+│   │   ├── task_communication.c/h # 通信任务 (Core 0)
+│   │   ├── task_motion.c/h        # 运动任务 (Core 0)
+│   │   └── task_pwm.c/h           # PWM任务 (Core 1)
+│   └── utils/                 # 工具模块
+│       ├── ring_buffer.c/h   # 环形缓冲区
+│       └── error_handler.c/h # 错误处理
+├── include/                    # 头文件
+│   ├── config/
+│   │   ├── config.h          # 系统参数
+│   │   └── pinout.h          # GPIO定义
+│   └── [各模块头文件目录]
+└── test_servo.py              # Python测试工具
 ```
 
 ## 性能指标
 
-- **PWM方案**: 硬件PWM（非PIO）
+- **开发框架**: Pico SDK (非Arduino)
+- **PWM方案**: RP2350硬件PWM（hardware/pwm.h，非PIO）
 - **PWM频率**: 50Hz (20ms周期)
-- **PWM分辨率**: ±0.5μs (2MHz时钟)
-- **PWM稳定性**: 由硬件自动生成，不受中断影响
+- **PWM分辨率**: ±0.5μs (125MHz时钟分频)
+- **PWM稳定性**: 由硬件定时器自动生成，不受中断影响
+- **RTOS**: FreeRTOS SMP (对称多处理，双核调度)
+- **通信接口**: USB CDC (TinyUSB)
 - **通信波特率**: 115200 bps
-- **单轴命令响应**: < 20ms
-- **批量命令响应**: < 30ms
+- **命令响应**: 单轴 < 20ms，批量 < 30ms
 - **插值更新周期**: 20ms
-- **系统时钟**: 150MHz (双核)
+- **系统时钟**: 150MHz (双核 Cortex-M33)
 
 ## 应用场景
 
