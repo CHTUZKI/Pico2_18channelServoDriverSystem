@@ -27,6 +27,7 @@ typedef enum {
     ERROR_CMD_PARAM = 0x21,         // 参数错误
     ERROR_CMD_LENGTH = 0x22,        // 长度错误
     ERROR_CMD_ID = 0x23,            // ID错误
+    ERROR_CMD_TYPE = 0x24,          // 舵机类型错误
     
     // 舵机错误 (0x30-0x3F)
     ERROR_SERVO_LIMIT = 0x30,       // 超出限位

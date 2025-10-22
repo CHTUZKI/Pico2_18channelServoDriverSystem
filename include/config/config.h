@@ -14,11 +14,25 @@
 
 // ==================== 舵机参数 ====================
 #define SERVO_COUNT             18          // 舵机数量
+
+// 180度位置舵机参数
 #define SERVO_MIN_PULSE_US      500         // 最小脉宽 (μs)
 #define SERVO_MAX_PULSE_US      2500        // 最大脉宽 (μs)
 #define SERVO_CENTER_PULSE_US   1500        // 中位脉宽 (μs)
 #define SERVO_MIN_ANGLE         0.0f        // 最小角度 (度)
 #define SERVO_MAX_ANGLE         180.0f      // 最大角度 (度)
+
+// 360度连续旋转舵机参数
+#define SERVO_360_MIN_PULSE_US          500     // 最小脉宽 (满速反转)
+#define SERVO_360_MAX_PULSE_US          2500    // 最大脉宽 (满速正转)
+#define SERVO_360_NEUTRAL_PULSE_US      1500    // 中点脉宽 (停止)
+#define SERVO_360_DEADZONE_US           50      // 死区范围 (±μs)
+#define SERVO_360_MIN_SPEED_THRESHOLD   5       // 最小速度阈值 (%, 防抖动)
+#define SERVO_360_DEFAULT_ACCEL         50      // 默认加速度 (%/s)
+#define SERVO_360_DEFAULT_DECEL         80      // 默认减速度 (%/s)
+#define SERVO_360_SOFT_STOP_FACTOR      0.90f   // 软停止衰减系数
+#define SERVO_360_DIRECTION_CHANGE_DELAY_MS  200  // 方向切换延迟 (ms)
+#define SERVO_360_TIMEOUT_MS            3000    // 超时保护 (ms)
 
 // ==================== PWM参数 ====================
 #define PWM_FREQUENCY_HZ        50          // PWM频率 50Hz
