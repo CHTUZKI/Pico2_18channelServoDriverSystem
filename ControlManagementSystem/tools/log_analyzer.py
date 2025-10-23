@@ -53,9 +53,9 @@ class LogAnalyzer:
         """搜索状态报告"""
         return self.search(r'<Idle|<Run|<Alarm|<Hold')
     
-    def search_gcode(self) -> List[Tuple[int, str]]:
-        """搜索G代码相关"""
-        return self.search(r'G0|G1|G4|M30|发送G代码')
+    def search_servo_commands(self) -> List[Tuple[int, str]]:
+        """搜索舵机命令相关"""
+        return self.search(r'舵机|servo|CMD_|使能|禁用|运动命令')
     
     def search_component(self, component_type: str = None) -> List[Tuple[int, str]]:
         """搜索组件操作"""
@@ -94,7 +94,7 @@ class LogAnalyzer:
             '错误数': len(self.search_error()),
             '警告数': len(self.search_warning()),
             '状态报告数': len(self.search_status_report()),
-            'G代码操作数': len(self.search_gcode()),
+            '舵机命令数': len(self.search_servo_commands()),
             '组件操作数': len(self.search_component())
         }
         return stats

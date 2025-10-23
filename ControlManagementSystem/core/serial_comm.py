@@ -14,7 +14,7 @@ from typing import List, Optional, Callable, Dict, Any
 from PyQt5.QtCore import QObject, pyqtSignal
 import logging
 
-logger = logging.getLogger('motor_controller')
+logger = logging.getLogger('servo_controller')
 
 class SerialComm(QObject):
     """串口通信类 - 舵机控制协议"""

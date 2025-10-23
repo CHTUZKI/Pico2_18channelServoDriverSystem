@@ -37,8 +37,8 @@ python quick_debug.py warning
 # 查看状态报告
 python quick_debug.py status
 
-# 查看G代码操作
-python quick_debug.py gcode
+# 查看舵机命令操作
+python quick_debug.py servo
 
 # 搜索关键词
 python quick_debug.py search "串口"
@@ -112,9 +112,9 @@ python quick_debug.py search "接收"
 python quick_debug.py search "发送"
 ```
 
-### 调试G代码生成问题
+### 调试舵机命令生成问题
 ```bash
-python quick_debug.py gcode
+python quick_debug.py servo
 python quick_debug.py search "G1"
 python quick_debug.py search "生成"
 ```

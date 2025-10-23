@@ -13,7 +13,7 @@ from models.component import Component, ComponentType, create_component
 from models.timeline_data import LoopMode
 import logging
 
-logger = logging.getLogger('motor_controller')
+logger = logging.getLogger('servo_controller')
 
 class ComponentWidget(QWidget):
     """部件可视化控件"""
@@ -37,7 +37,7 @@ class ComponentWidget(QWidget):
         self.drag_start_time = 0.0
         self.drag_start_duration = 0.0
         
-        self.setFixedHeight(30)
+        self.setFixedHeight(45)
         self.setStyleSheet(self._get_style_sheet())
         
         # 设置工具提示
@@ -636,6 +636,9 @@ class MotorTrack(QWidget):
         layout.addWidget(self.loop_combo)
         
         self.setLayout(layout)
+        
+        # 设置轨道的最小高度，确保运动部件有足够空间
+        self.setMinimumHeight(60)
     
     def _on_motor_label_clicked(self, event):
         """舵机标签点击事件"""

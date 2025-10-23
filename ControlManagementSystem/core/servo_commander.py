@@ -11,7 +11,7 @@ from models.component import Component, ComponentType
 import logging
 import time
 
-logger = logging.getLogger('motor_controller')
+logger = logging.getLogger('servo_controller')
 
 class ServoCommander:
     """舵机命令生成器 - 支持时间轴同步运动"""

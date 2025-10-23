@@ -42,8 +42,8 @@ static QF_MPOOL_EL(QEvt) small_pool_sto[20];
 // 中等事件池（用于单轴移动事件）
 static QF_MPOOL_EL(MoveSingleEvt) medium_pool_sto[10];
 
-// 大事件池（用于全轴移动事件）
-static QF_MPOOL_EL(MoveAllEvt) large_pool_sto[5];
+// 大事件池（用于运动控制事件 - MotionStartEvt是最大的）
+static QF_MPOOL_EL(MotionStartEvt) large_pool_sto[5];
 
 // ==================== 系统初始化 ====================
 
@@ -147,7 +147,11 @@ int main(void) {
     printf("[QP] Initializing event pools...\n");
     QF_poolInit(small_pool_sto, sizeof(small_pool_sto), sizeof(QEvt));
     QF_poolInit(medium_pool_sto, sizeof(medium_pool_sto), sizeof(MoveSingleEvt));
-    QF_poolInit(large_pool_sto, sizeof(large_pool_sto), sizeof(MoveAllEvt));
+    QF_poolInit(large_pool_sto, sizeof(large_pool_sto), sizeof(MotionStartEvt));
+    
+    // 打印事件池信息用于调试
+    printf("[QP] Event pool sizes: QEvt=%u, MoveSingleEvt=%u, MotionStartEvt=%u\n",
+           sizeof(QEvt), sizeof(MoveSingleEvt), sizeof(MotionStartEvt));
     
     // ========== 创建主动对象 ==========
     printf("[QP] Constructing Active Objects...\n");

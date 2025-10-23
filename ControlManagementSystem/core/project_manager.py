@@ -86,28 +86,28 @@ class ProjectManager:
         """另存为项目"""
         return self.save_project(timeline_data, file_path)
     
-    def export_gcode(self, timeline_data: TimelineData, file_path: str) -> bool:
-        """导出G代码到文件"""
+    def export_servo_commands(self, timeline_data: TimelineData, file_path: str) -> bool:
+        """导出舵机命令到文件"""
         try:
-            from .gcode_generator import GCodeGenerator
+            from .servo_commander import ServoCommander
             
-            generator = GCodeGenerator()
-            gcode = generator.generate_gcode(timeline_data)
+            commander = ServoCommander()
+            preview_text = commander.generate_preview_text(timeline_data)
             
             # 确保目录存在
             dir_path = os.path.dirname(file_path)
             if dir_path:
                 os.makedirs(dir_path, exist_ok=True)
             
-            # 保存G代码
+            # 保存舵机命令
             with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(gcode)
+                f.write(preview_text)
             
-            logger.info(f"G代码已导出: {file_path}")
+            logger.info(f"舵机命令已导出: {file_path}")
             return True
             
         except Exception as e:
-            logger.error(f"导出G代码失败: {e}")
+            logger.error(f"导出舵机命令失败: {e}")
             return False
     
     def get_project_info(self, file_path: str) -> Optional[Dict[str, Any]]:

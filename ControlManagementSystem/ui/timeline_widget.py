@@ -14,7 +14,7 @@ from models.timeline_data import TimelineData, LoopMode
 from models.component import ComponentType, create_component
 import logging
 
-logger = logging.getLogger('motor_controller')
+logger = logging.getLogger('servo_controller')
 
 class TimeRuler(QWidget):
     """时间标尺控件"""
@@ -27,7 +27,7 @@ class TimeRuler(QWidget):
         self.current_time = 0.0
         self.time_unit = "秒"
         
-        self.setFixedHeight(30)
+        self.setFixedHeight(50)
         self.setStyleSheet("""
             QWidget {
                 background-color: #f0f0f0;
@@ -216,7 +216,7 @@ class TimelineWidget(QWidget):
     def _create_control_panel(self, parent_layout):
         """创建控制面板"""
         control_frame = QFrame()
-        control_frame.setFixedHeight(40)
+        control_frame.setFixedHeight(60)
         control_frame.setStyleSheet("""
             QFrame {
                 background-color: #f5f5f5;
@@ -322,18 +322,18 @@ class TimelineWidget(QWidget):
             default_duration = self.config_manager.get_default_duration('rotation')
             default_forward_angle = self.config_manager.get_default_angle('forward')
             default_reverse_angle = self.config_manager.get_default_angle('reverse')
-            default_speed = self.config_manager.get_default_speed('rotation')
+            default_speed_ms = self.config_manager.get_default_speed_ms()
         else:
             default_duration = 5.0
             default_forward_angle = 90.0
             default_reverse_angle = -90.0
-            default_speed = 1000.0
+            default_speed_ms = 1000
         
         # 创建部件 - 使用配置的默认值
         if component_type == ComponentType.FORWARD_ROTATION:
-            component = create_component(component_type, motor_id, duration=default_duration, target_angle=default_forward_angle, speed=default_speed)
+            component = create_component(component_type, motor_id, duration=default_duration, target_angle=default_forward_angle, speed_ms=default_speed_ms)
         elif component_type == ComponentType.REVERSE_ROTATION:
-            component = create_component(component_type, motor_id, duration=default_duration, target_angle=default_reverse_angle, speed=default_speed)
+            component = create_component(component_type, motor_id, duration=default_duration, target_angle=default_reverse_angle, speed_ms=default_speed_ms)
         else:
             component = create_component(component_type, motor_id, duration=default_duration)
         

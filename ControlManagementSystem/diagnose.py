@@ -40,7 +40,7 @@ modules_to_check = [
     ("models.component", "部件数据模型"),
     ("models.timeline_data", "时间轴数据模型"),
     ("core.logger", "日志系统"),
-    ("core.gcode_generator", "G代码生成器"),
+    ("core.servo_commander", "舵机命令生成器"),
     ("core.serial_comm", "串口通信"),
     ("core.project_manager", "项目管理器"),
 ]

@@ -40,35 +40,26 @@ class ConfigManager:
     def _load_default_config(self) -> Dict[str, Any]:
         """加载默认配置"""
         return {
-            # 电机参数
-            "motor": {
-                "step_angle": 1.8,              # 电机步距角(度)
-                "microsteps": 8,                # 驱动器细分
-                "grbl_steps_per_mm": 250.0,     # grblHAL的steps/mm设置
+            # 舵机参数
+            "servo": {
+                "servo_count": 18,              # 舵机数量
+                "angle_min": 0.0,               # 最小角度(度)
+                "angle_max": 180.0,             # 最大角度(度)
+                "default_speed_ms": 1000,       # 默认运动时间(毫秒)
             },
             
-            # 默认速度
-            "default_speed": {
-                "rotation": 1000.0,             # 旋转默认速度(度/分钟)
-                "home": 1000.0,                 # 归零默认速度(度/分钟)
-            },
-            
-            # 默认角度
-            "default_angle": {
-                "forward": 90.0,                # 正转默认角度(度)
-                "reverse": -90.0,               # 反转默认角度(度)
+            # 默认运动参数
+            "default_motion": {
+                "forward_angle": 90.0,          # 正转默认角度(度)
+                "reverse_angle": -90.0,         # 反转默认角度(度)
+                "home_angle": 90.0,             # 归零默认角度(度)
+                "speed_ms": 1000,               # 默认运动时间(毫秒)
             },
             
             # 默认持续时间
             "default_duration": {
                 "rotation": 5.0,                # 旋转默认持续时间(秒)
                 "delay": 1.0,                   # 延时默认时长(秒)
-            },
-            
-            # grblHAL参数
-            "grblhal": {
-                "max_travel": 36000.0,          # 最大行程(mm) - 自动设置$130-$137
-                "auto_set_travel": False,       # 是否自动设置最大行程
             },
             
             # 串口参数
@@ -164,25 +155,32 @@ class ConfigManager:
         # 设置值
         config[keys[-1]] = value
     
-    def get_motor_settings(self) -> Dict[str, Any]:
-        """获取电机设置"""
-        return self.config.get('motor', {})
+    def get_servo_settings(self) -> Dict[str, Any]:
+        """获取舵机设置"""
+        return self.config.get('servo', {})
     
-    def set_motor_settings(self, settings: Dict[str, Any]):
-        """设置电机参数"""
-        self.config['motor'] = settings
+    def set_servo_settings(self, settings: Dict[str, Any]):
+        """设置舵机参数"""
+        self.config['servo'] = settings
     
-    def get_default_speed(self, component_type: str) -> float:
-        """获取默认速度"""
-        return self.config['default_speed'].get(component_type, 1000.0)
+    def get_default_speed_ms(self) -> int:
+        """获取默认运动时间（毫秒）"""
+        return self.config.get('servo', {}).get('default_speed_ms', 1000)
     
     def get_default_angle(self, direction: str) -> float:
         """获取默认角度"""
-        return self.config['default_angle'].get(direction, 90.0)
+        motion_config = self.config.get('default_motion', {})
+        if direction == 'forward':
+            return motion_config.get('forward_angle', 90.0)
+        elif direction == 'reverse':
+            return motion_config.get('reverse_angle', -90.0)
+        elif direction == 'home':
+            return motion_config.get('home_angle', 90.0)
+        return 90.0
     
     def get_default_duration(self, component_type: str) -> float:
         """获取默认持续时间"""
-        return self.config['default_duration'].get(component_type, 5.0)
+        return self.config.get('default_duration', {}).get(component_type, 5.0)
     
     def get_serial_settings(self) -> Dict[str, Any]:
         """获取串口设置"""

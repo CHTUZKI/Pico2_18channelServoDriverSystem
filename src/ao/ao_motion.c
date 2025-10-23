@@ -73,8 +73,14 @@ static QState AO_Motion_idle(AO_Motion_t * const me, QEvt const * const e) {
     
     switch (e->sig) {
         case Q_ENTRY_SIG: {
-            printf("[AO-MOTION] Entering IDLE state\n");
+            printf("[AO-MOTION] >>> Entering IDLE state <<<\n");
             me->is_moving = false;
+            status = Q_HANDLED();
+            break;
+        }
+        
+        case Q_EXIT_SIG: {
+            printf("[AO-MOTION] Exiting IDLE state\n");
             status = Q_HANDLED();
             break;
         }
@@ -83,13 +89,18 @@ static QState AO_Motion_idle(AO_Motion_t * const me, QEvt const * const e) {
             // 开始运动
             MotionStartEvt const *evt = Q_EVT_CAST(MotionStartEvt);
             
-            printf("[AO-MOTION] Motion start, duration=%d ms\n", evt->duration_ms);
+            printf("[AO-MOTION] Motion start, axis_count=%d, duration=%d ms\n", 
+                   evt->axis_count, evt->duration_ms);
             
-            // 设置插值器
+            // 设置插值器 - 初始化所有舵机的起始位置
             float start_positions[SERVO_COUNT];
-            for (uint8_t i = 0; i < evt->axis_count && i < SERVO_COUNT; i++) {
-                start_positions[i] = servo_get_angle(evt->axis_ids[i]);
+            // 先获取所有舵机的当前位置
+            for (uint8_t i = 0; i < SERVO_COUNT; i++) {
+                start_positions[i] = servo_get_angle(i);
             }
+            
+            // 暂时移除浮点printf，避免可能的问题
+            printf("[AO-MOTION] Setting up interpolator for all axes\n");
             
             multi_interpolator_set_motion(&me->interpolator,
                                         start_positions,
@@ -139,6 +150,7 @@ static QState AO_Motion_moving(AO_Motion_t * const me, QEvt const * const e) {
         }
         
         case Q_EXIT_SIG: {
+            printf("[AO-MOTION] Exiting MOVING state\n");
             me->is_moving = false;
             status = Q_HANDLED();
             break;
@@ -154,16 +166,25 @@ static QState AO_Motion_moving(AO_Motion_t * const me, QEvt const * const e) {
             // 应用到舵机
             servo_set_all_angles(output_positions);
             
+            // 调试：定期打印状态
+            static uint32_t tick_count = 0;
+            tick_count++;
+            if (tick_count % 25 == 0) {  // 每500ms打印一次
+                printf("[AO-MOTION] TICK #%lu\n", tick_count);
+            }
+            
             // 检查是否到达
             if (multi_interpolator_all_reached(&me->interpolator)) {
-                printf("[AO-MOTION] Motion complete!\n");
+                printf("[AO-MOTION] Motion complete! Transitioning to IDLE...\n");
+                tick_count = 0;  // 重置计数器
                 
-                // 发布运动完成事件（其他AO可能需要）
-                static QEvt const motion_complete_evt = QEVT_INITIALIZER(MOTION_COMPLETE_SIG);
-                QACTIVE_PUBLISH(&motion_complete_evt, AO_Motion);
+                // 暂时注释掉PUBLISH，看是否是问题所在
+                // static QEvt const motion_complete_evt = QEVT_INITIALIZER(MOTION_COMPLETE_SIG);
+                // QACTIVE_PUBLISH(&motion_complete_evt, AO_Motion);
                 
                 // 返回idle状态
                 status = Q_TRAN(&AO_Motion_idle);
+                printf("[AO-MOTION] Q_TRAN called\n");
             } else {
                 status = Q_HANDLED();
             }

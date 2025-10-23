@@ -88,16 +88,16 @@ def check_serial():
     print("=" * 100)
 
 
-def check_gcode():
-    """检查G代码生成和发送"""
+def check_servo_commands():
+    """检查舵机命令生成和发送"""
     analyzer = LogAnalyzer()
     
-    print("\n[GCODE] G代码检查")
+    print("\n[SERVO] 舵机命令检查")
     print("=" * 100)
     
-    gcode_logs = analyzer.search_gcode()
-    print(f"\nG代码相关记录 ({len(gcode_logs)} 条):")
-    for line_num, content in gcode_logs:
+    servo_logs = analyzer.search_servo_commands()
+    print(f"\n舵机命令相关记录 ({len(servo_logs)} 条):")
+    for line_num, content in servo_logs:
         print(f"  [{line_num:5d}] {content}")
     
     print("=" * 100)

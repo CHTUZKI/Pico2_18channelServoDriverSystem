@@ -1,32 +1,31 @@
-# **⚠️ 项目开发中 - 尚未完成 ⚠️**
+# 18通道舵机控制系统
 
-## 18轴舵机控制系统
+基于 Raspberry Pi Pico 2 (RP2350) 的18通道舵机驱动系统，使用QP/C事件驱动框架实现高精度PWM控制。
 
-基于 Raspberry Pi Pico 2 (RP2350) 的18通道舵机驱动系统，使用FreeRTOS双核调度实现高精度PWM控制。
+## ✨ 系统特性
 
-## 系统特性
-
-- ✅ **18路硬件PWM输出** - 使用RP2350的24个硬件PWM通道，50Hz频率，0.5μs分辨率
+- ✅ **18路硬件PWM输出** - 使用RP2350的硬件PWM通道，50Hz频率，0.5μs分辨率
 - ✅ **混合舵机支持** - 同时支持180度位置舵机和360度连续旋转舵机
 - ✅ **360度舵机算法** - 死区补偿、加减速控制、软停止、方向切换保护
-- ✅ **USB CDC通信** - 虚拟串口，自定义协议，CRC-16校验
-- ✅ **FreeRTOS双核** - Core 0处理通信/算法，Core 1负责状态监控
-- ✅ **运动插值** - 线性和S曲线插值，支持多轴同步运动
+- ✅ **USB CDC通信** - 虚拟串口，自定义二进制协议，CRC-16校验
+- ✅ **QP/C事件驱动** - 专业级实时层次状态机框架，3个活动对象协同工作
+- ✅ **运动插值** - 线性和S曲线插值，支持18轴同步运动
 - ✅ **Flash存储** - 舵机校准参数持久化
 - ✅ **安全保护** - 急停、超时、限位保护机制
 - ✅ **硬件可靠** - PWM由硬件定时器自动生成，不受中断影响
+- ✅ **图形化上位机** - PyQt5编程界面，支持时间轴编辑
 
-## 硬件要求
+## 🔧 硬件要求
 
 - **主控**: Raspberry Pi Pico 2 (RP2350)
 - **舵机**: 支持以下类型（可混合使用）
-  - 180度位置舵机（MG995等标准PWM舵机）
-  - 360度连续旋转舵机
+  - 180度位置舵机（MG995、SG90等标准PWM舵机）
+  - 360度连续旋转舵机（FS90R等）
   - 90度/270度舵机（需修改配置）
 - **电源**: 6V/20-30A 开关电源（舵机独立供电）
 - **通信**: USB Type-C
 
-## 引脚分配
+## 📌 引脚分配
 
 | 功能 | GPIO | 说明 |
 |------|------|------|
@@ -34,57 +33,122 @@
 | LED | GPIO 25 | 板载LED状态指示 |
 | USB | USB接口 | 虚拟串口通信 |
 
-## 编译与烧录
+## 🏗️ 系统架构
 
-### 使用 PlatformIO
+### 嵌入式端 (QP/C框架)
 
-```bash
-# 首次使用：安装依赖
-pio pkg install
-
-# 编译项目
-pio run -e pico2
-
-# 编译并上传（按住BOOTSEL按钮连接USB）
-pio run -e pico2 --target upload
-
-# 串口监视器
-pio device monitor -e pico2
+```
+RP2350 (Cortex-M33 @ 150MHz)
+├── QP/C 7.3.4 (QV Kernel)       # 事件驱动框架
+│   ├── AO_Communication          # 通信主动对象（优先级3）
+│   │   ├── USB CDC收发
+│   │   ├── 协议解析
+│   │   └── 命令分发
+│   ├── AO_Motion                 # 运动主动对象（优先级2）
+│   │   ├── 运动插值（20ms）
+│   │   ├── 轨迹规划
+│   │   └── 舵机控制
+│   └── AO_System                 # 系统主动对象（优先级1）
+│       ├── LED状态指示（1s）
+│       ├── 错误处理
+│       └── Flash存储管理
+│
+├── 硬件PWM（18通道）            # 2MHz时钟，0.5μs分辨率
+├── 180度舵机控制                # 角度→脉宽转换，校准
+├── 360度舵机控制                # 速度控制，加减速，死区补偿
+└── Flash存储                    # 参数持久化
 ```
 
-### 配置说明
+### 上位机端 (PyQt5)
 
-项目配置文件：`platformio.ini`
+```
+ControlManagementSystem/
+├── 主窗口 (MainWindow)
+│   ├── 工具栏（连接、运行、停止、使能控制）
+│   ├── 串口日志（协议过滤、自动滚动）
+│   └── 舵机状态显示
+│
+├── 时间轴编辑器 (TimelineWidget)
+│   ├── 18条舵机轨道
+│   ├── 运动组件（正转、反转、回中、延时）
+│   ├── 拖放编辑
+│   └── 时间刻度尺
+│
+├── 核心模块
+│   ├── SerialComm - 串口通信和协议
+│   ├── ServoCommander - 命令序列生成器
+│   ├── ProjectManager - 项目保存/加载
+│   └── ConfigManager - 配置管理
+│
+└── 对话框
+    ├── 舵机参数设置（18通道、角度范围）
+    ├── 运动组件编辑
+    ├── 默认参数配置
+    └── 运动逻辑表显示
+```
 
-关键配置：
-- **平台**: 本地平台文件 (`platform-raspberrypi-develop/`)
-- **板卡**: `rpipico2` (RP2350)
-- **框架**: `picosdk` (Raspberry Pi Pico SDK)
-- **库依赖**: FreeRTOS-Kernel (从GitHub自动下载)
-- **构建脚本**: `scripts/add_freertos.py` (自定义FreeRTOS集成)
-- **USB**: TinyUSB CDC (Pico SDK内置)
+## 🚀 快速开始
 
-### 依赖说明
+### 1. 编译固件
 
-项目采用**自定义构建脚本**来集成FreeRTOS SMP：
+#### 使用 PlatformIO IDE
 
-**自动处理**：
-- ✅ Pico SDK (本地平台包含)
-- ✅ FreeRTOS-Kernel (PlatformIO从GitHub下载)
-- ✅ 硬件PWM库 (hardware/pwm.h)
-- ✅ Flash存储库 (hardware/flash.h)
-- ✅ TinyUSB (USB CDC)
+```bash
+# 安装依赖（首次）
+pio pkg install
 
-**构建脚本** (`scripts/add_freertos.py`) **自动完成**：
-- 检测RP2350芯片并选择正确的FreeRTOS移植层
-- 添加FreeRTOS头文件路径和编译定义
-- 编译FreeRTOS核心组件（tasks, queue, timers等）
-- 配置双核SMP支持
-- 链接必要的Pico SDK组件（hardware_exception等）
+# 编译固件
+pio run
 
-**不需要手动配置任何依赖！PlatformIO和构建脚本会自动处理一切。**
+# 上传到Pico2（按住BOOTSEL按钮连接USB）
+pio run -t upload
 
-## 通信协议
+# 串口监视器（查看调试信息）
+pio device monitor
+```
+
+#### 调试开关
+
+编辑 `src/ao/ao_communication.c`:
+```c
+#define USB_DEBUG_ENABLE 0  // 0=关闭调试，1=开启调试
+```
+
+### 2. 安装上位机
+
+```bash
+cd ControlManagementSystem
+
+# 安装Python依赖
+pip install -r requirements.txt
+
+# 运行上位机
+python main.py
+```
+
+### 3. 基本使用流程
+
+1. **连接设备**
+   - 点击"连接"按钮，选择COM口
+   - 看到"串口连接成功"提示
+
+2. **使能舵机**
+   - 点击"全部使能"按钮（变绿色）
+   - 或单独点击舵机轨道名称使能
+
+3. **编程运动序列**
+   - 从组件面板拖动运动组件到时间轴
+   - 双击组件编辑参数（角度、时间）
+
+4. **执行程序**
+   - 点击"运行"按钮
+   - 观察舵机运动和日志输出
+
+5. **保存项目**
+   - 文件 → 保存项目
+   - 下次可直接加载
+
+## 📡 通信协议
 
 ### 帧格式
 
@@ -92,223 +156,366 @@ pio device monitor -e pico2
 [0xFF] [0xFE] [ID] [CMD] [LEN] [DATA...] [CRC_H] [CRC_L]
 ```
 
-字段说明：
-- **帧头**: 0xFF 0xFE (固定)
-- **ID**: 设备ID (0x00=广播, 0x01-0xFE=单播)
+**字段说明：**
+- **帧头**: `FF FE` (固定)
+- **ID**: 设备ID (`0x00`=广播, `0x01-0xFE`=单播)
 - **CMD**: 命令字节
-- **LEN**: 数据长度
-- **DATA**: 数据内容
-- **CRC**: CRC-16校验 (CCITT标准)
+- **LEN**: 数据长度（不包括帧头、ID、CMD、LEN、CRC）
+- **DATA**: 命令数据
+- **CRC**: CRC-16 CCITT校验（计算范围：ID到DATA结束）
 
 ### 命令集
 
-#### 位置控制
-- **0x01** - `MOVE_SINGLE`: 单轴位置控制
-  - 数据: `[ID] [角度高] [角度低] [速度高] [速度低]`
-  
-- **0x03** - `MOVE_ALL`: 全轴批量控制 (推荐)
-  - 数据: `[角度1高] [角度1低] ... [角度18高] [角度18低] [速度高] [速度低]`
+#### 位置控制命令
+
+| 命令 | 代码 | 数据格式 | 说明 |
+|------|------|----------|------|
+| MOVE_SINGLE | 0x01 | `[舵机ID] [角度H] [角度L] [时间H] [时间L]` | 单轴移动 |
+| MOVE_MULTI | 0x02 | `[轴数] [ID0] [角度H] [角度L] ...` | 多轴选择性移动 |
+| MOVE_ALL | 0x03 | `[角度0H] [角度0L] ... [角度17H] [角度17L] [时间H] [时间L]` | 18轴同步移动 |
+
+**角度编码：** `angle_int = (int)(angle * 100)` - 例如90.5° = 9050
 
 #### 查询命令
-- **0x10** - `GET_SINGLE`: 查询单轴状态
-- **0x11** - `GET_ALL`: 查询全轴状态
+
+| 命令 | 代码 | 数据格式 | 返回数据 |
+|------|------|----------|----------|
+| GET_SINGLE | 0x10 | `[舵机ID]` | `[ID] [角度H] [角度L] [使能]` |
+| GET_ALL | 0x11 | 无 | `[ID0] [角度H] [角度L] [ID1] ...` (54字节) |
 
 #### 配置命令
-- **0x20** - `ENABLE`: 使能舵机
-- **0x21** - `DISABLE`: 失能舵机
+
+| 命令 | 代码 | 数据格式 | 说明 |
+|------|------|----------|------|
+| ENABLE | 0x20 | `[舵机ID]` | 使能舵机（`0xFF`=全部） |
+| DISABLE | 0x21 | `[舵机ID]` | 失能舵机（`0xFF`=全部） |
 
 #### 存储命令
-- **0x30** - `SAVE_FLASH`: 保存参数到Flash
-- **0x31** - `LOAD_FLASH`: 从Flash加载参数
-- **0x32** - `RESET_FACTORY`: 恢复出厂设置
+
+| 命令 | 代码 | 数据格式 | 说明 |
+|------|------|----------|------|
+| SAVE_FLASH | 0x30 | 无 | 保存校准参数到Flash |
+| LOAD_FLASH | 0x31 | 无 | 从Flash加载校准参数 |
+| RESET_FACTORY | 0x32 | 无 | 恢复出厂设置 |
 
 #### 系统命令
-- **0xFE** - `PING`: 心跳/连接检测
-- **0xFF** - `ESTOP`: 紧急停止
 
-## Python测试工具
+| 命令 | 代码 | 数据格式 | 说明 |
+|------|------|----------|------|
+| PING | 0xFE | 无 | 心跳检测，返回"PONG" |
+| ESTOP | 0xFF | 无 | 紧急停止，立即停止所有PWM |
 
-项目包含两个Python测试工具：
-- `test_servo.py` - 命令行版本
-- `test_servo_gui.py` - 图形界面版本（推荐）
+### 响应码
 
-### 安装依赖
+| 代码 | 含义 |
+|------|------|
+| 0x00 | 成功 |
+| 0x01 | 错误 |
+| 0x02 | 无效命令 |
+| 0x03 | 无效参数 |
+| 0x04 | CRC错误 |
+| 0x05 | 超时 |
+| 0x06 | 繁忙 |
 
-```bash
-# 命令行版本
-pip install pyserial
+## 🧪 测试工具
 
-# GUI版本
-pip install -r requirements.txt
-# 或者手动安装
-pip install pyserial PyQt5
-```
+### 功能测试脚本 (`test_servo.py`)
 
-### GUI版本使用（推荐）
-
-```bash
-python test_servo_gui.py
-```
-
-**功能特性**：
-- ✅ 图形化界面，操作直观
-- ✅ 串口自动检测与连接管理
-- ✅ 单轴/全轴控制面板
-- ✅ 实时通信日志显示
-- ✅ 心跳测试、状态查询
-- ✅ 紧急停止按钮
-- ✅ 支持180°和360°舵机
-
-### 命令行版本使用
+自动测试所有协议命令：
 
 ```bash
-# 交互模式
-python test_servo.py --port COM3
-
-# 控制单个舵机
-# 舵机0转到90度，速度1000ms
-python test_servo.py --port COM3 --single 0 90 1000
-
-# 控制所有舵机
-# 所有舵机转到90度，速度1000ms
-python test_servo.py --port COM3 --all 90 1000
-
-# 心跳测试
-python test_servo.py --port COM3 --ping
-
-# 查询状态
-python test_servo.py --port COM3 --query
-
-# 紧急停止
-python test_servo.py --port COM3 --estop
+python test_servo.py
 ```
 
-## 代码结构
+**测试内容：**
+1. PING - 心跳检测
+2. ENABLE_SINGLE - 使能单个舵机
+3. ENABLE_ALL - 使能所有舵机
+4. MOVE_SINGLE - 单轴移动
+5. MOVE_ALL - 全轴同步移动
+6. GET_SINGLE - 查询单轴状态
+7. GET_ALL - 查询全轴状态
+8. DISABLE_SINGLE - 失能舵机
+
+**测试报告：** 自动保存到 `test_servo_log.txt`
+
+### 图形化上位机 (`ControlManagementSystem/`)
+
+专业级舵机编程工具：
+
+```bash
+cd ControlManagementSystem
+python main.py
+```
+
+**核心功能：**
+- ✅ 可视化时间轴编辑器
+- ✅ 18路舵机独立轨道
+- ✅ 运动组件拖放编辑
+- ✅ 实时串口通讯监控
+- ✅ 项目保存/加载
+- ✅ 命令序列导出
+- ✅ 运动逻辑表生成
+- ✅ 全部/单独舵机使能控制
+
+## 📁 代码结构
 
 ```
 Pico2_18channelServoDriverSystem/
-├── platformio.ini              # PlatformIO配置文件
-├── scripts/
-│   └── add_freertos.py        # FreeRTOS自定义构建脚本
-├── platform-raspberrypi-develop/  # 本地RP2350平台支持
-├── pico-sdk-master/            # Pico SDK (本地)
-├── src/                        # 源代码
-│   ├── main.c                 # 主程序，FreeRTOS初始化
-│   ├── FreeRTOSConfig.h       # FreeRTOS配置文件
-│   ├── communication/         # 通信模块
-│   │   ├── usb_handler.c/h   # USB CDC处理
-│   │   ├── protocol.c/h      # 协议解析
-│   │   ├── crc16.c/h         # CRC校验
-│   │   └── commands.c/h      # 命令处理
-│   ├── pwm/                   # PWM驱动
-│   │   └── pwm_driver.c/h    # 硬件PWM控制
-│   ├── servo/                 # 舵机控制
-│   │   ├── servo_control.c/h # 180度位置舵机
-│   │   ├── servo_360.c/h     # 360度连续旋转舵机
-│   │   └── servo_manager.c/h # 统一管理器
-│   ├── motion/                # 运动控制
-│   │   └── interpolation.c/h # 插值算法
-│   ├── storage/               # 存储管理
-│   │   ├── flash_storage.c/h # Flash读写
-│   │   └── param_manager.c/h # 参数管理
-│   ├── tasks/                 # FreeRTOS任务
-│   │   ├── task_communication.c/h # 通信任务 (Core 0)
-│   │   ├── task_motion.c/h        # 运动任务 (Core 0)
-│   │   └── task_pwm.c/h           # PWM任务 (Core 1)
-│   └── utils/                 # 工具模块
-│       ├── ring_buffer.c/h   # 环形缓冲区
-│       └── error_handler.c/h # 错误处理
-├── include/                    # 头文件
+├── platformio.ini                    # PlatformIO配置
+├── lib/
+│   └── qpc_7.3.4_qv/                # QP/C框架源码
+├── src/                              # 嵌入式源代码
+│   ├── main.c                        # 主程序，QP/C初始化
+│   ├── qp_port_init.c               # QP/C移植层（SysTick等）
+│   ├── ao/                           # 主动对象（Active Objects）
+│   │   ├── ao_communication.c/h     # 通信AO（USB, 协议解析）
+│   │   ├── ao_motion.c/h            # 运动AO（插值，轨迹）
+│   │   └── ao_system.c/h            # 系统AO（监控，LED，Flash）
+│   ├── communication/                # 通信模块
+│   │   ├── protocol.c/h             # 协议解析器
+│   │   ├── crc16.c/h                # CRC-16校验
+│   │   └── usb_handler.c/h          # USB CDC处理（保留）
+│   ├── events/                       # 事件定义
+│   │   ├── events.h                 # 事件信号枚举
+│   │   └── event_types.h            # 事件数据结构
+│   ├── pwm/                          # PWM驱动
+│   │   └── pwm_driver.c/h           # 硬件PWM控制
+│   ├── servo/                        # 舵机控制
+│   │   ├── servo_control.c/h        # 180度位置舵机
+│   │   ├── servo_360.c/h            # 360度连续旋转舵机
+│   │   └── servo_manager.c/h        # 统一管理器
+│   ├── motion/                       # 运动控制
+│   │   └── interpolation.c/h        # 多轴插值算法
+│   ├── storage/                      # 存储管理
+│   │   ├── flash_storage.c/h        # Flash读写
+│   │   └── param_manager.c/h        # 参数管理
+│   └── utils/                        # 工具模块
+│       ├── ring_buffer.c/h          # 环形缓冲区
+│       └── error_handler.c/h        # 错误处理
+│
+├── include/                          # 头文件
 │   ├── config/
-│   │   ├── config.h          # 系统参数（包含360度舵机配置）
-│   │   └── pinout.h          # GPIO定义
+│   │   ├── config.h                 # 系统参数
+│   │   └── pinout.h                 # GPIO定义
+│   ├── qp_config.h                  # QP/C配置
 │   └── [各模块头文件目录]
-├── test_servo.py              # Python测试工具（命令行版本）
-├── test_servo_gui.py          # Python测试工具（GUI版本）
-├── requirements.txt           # Python依赖列表
-└── SERVO_360_GUIDE.md         # 360度舵机使用指南
+│
+├── ControlManagementSystem/          # 上位机程序（Python + PyQt5）
+│   ├── main.py                       # 启动入口
+│   ├── ui/                           # UI模块
+│   │   ├── main_window.py           # 主窗口
+│   │   ├── timeline_widget.py       # 时间轴编辑器
+│   │   ├── motor_track.py           # 舵机轨道
+│   │   ├── component_palette.py     # 组件面板
+│   │   └── dialogs.py               # 对话框
+│   ├── core/                         # 核心逻辑
+│   │   ├── serial_comm.py           # 串口通信
+│   │   ├── servo_commander.py       # 命令生成器
+│   │   ├── project_manager.py       # 项目管理
+│   │   ├── config_manager.py        # 配置管理
+│   │   └── logger.py                # 日志系统
+│   ├── models/                       # 数据模型
+│   │   ├── component.py             # 运动组件
+│   │   └── timeline_data.py         # 时间轴数据
+│   └── tools/                        # 调试工具
+│       ├── ai_debug.py              # AI调试助手
+│       └── log_analyzer.py          # 日志分析
+│
+├── test_servo.py                     # 功能测试脚本
+├── test_servo_log.txt               # 测试报告（自动生成）
+├── requirements.txt                  # Python依赖
+└── SERVO_360_GUIDE.md               # 360度舵机指南
 ```
 
-## 性能指标
+## ⚙️ 性能指标
 
-- **开发框架**: Pico SDK (非Arduino)
-- **PWM方案**: RP2350硬件PWM（hardware/pwm.h，非PIO）
-- **PWM频率**: 50Hz (20ms周期)
-- **PWM分辨率**: ±0.5μs (125MHz时钟分频)
-- **PWM稳定性**: 由硬件定时器自动生成，不受中断影响
-- **RTOS**: FreeRTOS SMP (对称多处理，双核调度)
-- **通信接口**: USB CDC (TinyUSB)
-- **通信波特率**: 115200 bps
-- **命令响应**: 单轴 < 20ms，批量 < 30ms
-- **插值更新周期**: 20ms
-- **系统时钟**: 150MHz (双核 Cortex-M33)
+| 指标 | 数值 | 说明 |
+|------|------|------|
+| **CPU** | RP2350 @ 150MHz | 双核Cortex-M33（单核运行） |
+| **框架** | QP/C 7.3.4 (QV) | 事件驱动，协作式内核 |
+| **PWM频率** | 50Hz | 标准舵机频率 |
+| **PWM分辨率** | 0.5μs | 2MHz时钟，40000计数 |
+| **插值周期** | 20ms | 与PWM周期同步 |
+| **通信接口** | USB CDC | TinyUSB实现 |
+| **通信速率** | 115200 bps | 虚拟串口 |
+| **命令响应** | <20ms | 单轴命令 |
+| **命令响应** | <30ms | 18轴同步命令 |
+| **Flash存储** | 256KB偏移 | 参数持久化 |
+| **内存占用** | <64KB RAM | 事件池优化 |
 
-## 应用场景
+## 🎯 应用场景
 
 ### 180度位置舵机应用
-- 6足机器人关节控制（每条腿3个舵机）
-- 多关节机械臂
-- 仿生机器人
-- 云台/摄像头控制
+- 🤖 **六足机器人** - 每条腿3个舵机（18自由度）
+- 🦾 **多关节机械臂** - 精确位置控制
+- 🎭 **仿生机器人** - 复杂关节运动
+- 📷 **云台控制** - 双轴/三轴云台
 
 ### 360度连续旋转舵机应用
-- 移动机器人底盘驱动
-- 传送带/输送机构
-- 持续旋转机构
-- 混合式机器人（关节+轮式）
+- 🚗 **移动机器人底盘** - 轮式驱动
+- 📦 **传送带机构** - 持续旋转输送
+- 🔄 **旋转平台** - 展示台、转盘
 
 ### 混合应用
-- 机械臂+移动底盘机器人
-- 巡线机器人（转向+行走）
-- 机器人教育平台
+- 🦾🚗 **机械臂+移动底盘** - 6个关节+2个轮子
+- 🤖 **教育机器人平台** - 灵活的关节和轮子配置
+- 🎯 **自动化设备** - 复杂的运动组合
 
-## 常见问题
+## 🔧 配置说明
+
+### platformio.ini 关键配置
+
+```ini
+[env:pico2]
+platform = file://platform-raspberrypi-develop/platform-raspberrypi-develop
+board = rpipico2
+framework = picosdk
+
+build_flags = 
+    -DPICO_STACK_SIZE=0x1000          # 栈大小4KB
+    -DPICO_PRINTF_ALWAYS_INCLUDED=1   # 启用printf
+    -DPICO_FLOAT_SUPPORT_ROM_V1=1     # 浮点支持
+```
+
+### config.h 系统参数
+
+```c
+#define SERVO_COUNT             18          // 舵机数量
+#define SERVO_MIN_PULSE_US      500         // 最小脉宽 (μs)
+#define SERVO_MAX_PULSE_US      2500        // 最大脉宽 (μs)
+#define PWM_FREQUENCY_HZ        50          // PWM频率 50Hz
+#define TIME_EVENT_INTERP_MS    20          // 插值周期 20ms
+```
+
+## 🐛 故障排查
 
 ### Q: 舵机不动？
-A: 检查：
-1. 舵机电源是否连接（6V/大电流）
-2. GPIO引脚连接是否正确
-3. 舵机是否使能（发送ENABLE命令）
-4. 检查串口通信是否正常
+**检查清单：**
+1. ✅ 舵机电源是否连接（6V/大电流）
+2. ✅ GPIO引脚连接是否正确（GPIO 0-17）
+3. ✅ 舵机是否使能（点击"全部使能"或单个使能）
+4. ✅ 上位机是否显示"连接成功"
+5. ✅ 串口日志是否有响应
 
 ### Q: 舵机抖动？
-A: 可能原因：
-1. 电源供电不足
-2. PWM信号干扰
-3. 校准参数不正确
+**可能原因：**
+1. ❌ 电源供电不足（需要大电流电源）
+2. ❌ 信号线过长或有干扰
+3. ❌ 校准参数不正确
+4. ❌ PWM频率不匹配（应为50Hz）
 
 ### Q: 通信无响应？
-A: 检查：
-1. USB连接是否正常
-2. 波特率是否匹配（115200）
-3. CRC校验是否正确
-4. 帧格式是否正确
+**检查清单：**
+1. ✅ USB连接是否正常
+2. ✅ 串口号是否正确
+3. ✅ 单片机LED是否闪烁（1秒1次）
+4. ✅ CRC校验是否通过
+5. ✅ 固件是否最新版本
+
+**调试方法：**
+```bash
+# 运行测试脚本
+python test_servo.py
+
+# 查看测试报告
+cat test_servo_log.txt
+```
+
+### Q: LED不闪烁或快速闪烁？
+**LED状态含义：**
+- **1秒闪烁** - 正常运行 ✅
+- **200ms闪烁** - 错误状态 ⚠️
+- **50ms闪烁** - 紧急停止 🚨
+- **不闪烁** - 程序崩溃或未启动 ❌
 
 ### Q: 如何使用360度舵机？
-A: 步骤：
-1. 使用 `servo_manager_set_type()` 设置舵机类型
-2. 使用 `servo_360_set_speed()` 控制速度（-100到+100）
-3. 详见 `SERVO_360_GUIDE.md` 使用指南
+**步骤：**
+1. 通过上位机配置舵机类型为360度模式
+2. 使用速度控制命令（-100到+100）
+3. 详见 `SERVO_360_GUIDE.md`
 
-## 开发路线图
+## 📚 开发文档
 
-- [x] Phase 1: 基础PWM功能
-- [x] Phase 2: 通信协议
-- [x] Phase 3: 运动控制
-- [x] Phase 4: 参数存储
-- [x] Phase 5: 高级功能
-- [ ] Phase 6: ROS2集成
-- [ ] Phase 7: 测试与优化
+- [功能需求文档](功能需求文档.md) - 项目需求和规格
+- [360度舵机指南](SERVO_360_GUIDE.md) - 360度舵机详细说明
+- [QP/C迁移总结](QPC_MIGRATION_SUCCESS.md) - 从FreeRTOS到QP/C的迁移记录
+- [项目概览](PROJECT_OVERVIEW.md) - 系统架构和设计
+- [实现总结](IMPLEMENTATION_SUMMARY.md) - 实现细节
 
-## 许可证
+## 🔄 开发路线图
+
+- [x] **Phase 1**: 基础PWM功能（18路硬件PWM）
+- [x] **Phase 2**: 通信协议（USB CDC + 自定义协议）
+- [x] **Phase 3**: 运动控制（插值算法）
+- [x] **Phase 4**: 参数存储（Flash持久化）
+- [x] **Phase 5**: QP/C迁移（事件驱动架构）
+- [x] **Phase 6**: 上位机开发（PyQt5 GUI）
+- [x] **Phase 7**: 360度舵机支持
+- [ ] **Phase 8**: 高级轨迹规划
+- [ ] **Phase 9**: ROS2集成
+- [ ] **Phase 10**: 性能优化和测试
+
+## 🛠️ 技术栈
+
+### 嵌入式端
+- **硬件平台**: Raspberry Pi Pico 2 (RP2350)
+- **开发框架**: Pico SDK 2.0
+- **实时框架**: QP/C 7.3.4 (Quantum Platform)
+- **构建工具**: PlatformIO + CMake
+- **通信协议**: USB CDC (TinyUSB)
+- **编程语言**: C99
+
+### 上位机端
+- **编程语言**: Python 3.8+
+- **GUI框架**: PyQt5
+- **串口通信**: pyserial
+- **项目格式**: JSON
+
+## 🔐 安全注意事项
+
+⚠️ **重要安全提示：**
+
+1. **电源隔离**
+   - 舵机电源必须独立供电
+   - 不要从Pico 2的VSYS供电
+   - 峰值电流可达30-45A
+
+2. **急停按钮**
+   - 上位机提供软件急停
+   - 建议添加硬件急停开关
+   - 紧急情况下拔掉舵机电源
+
+3. **限位保护**
+   - 180度舵机：0-180度软限位
+   - 360度舵机：3秒超时保护
+   - PWM脉宽：500-2500μs硬限位
+
+4. **测试建议**
+   - 首次使用先单个舵机测试
+   - 确认角度方向正确
+   - 从低速度开始测试
+   - 准备好急停按钮
+
+## 📄 许可证
 
 MIT License
 
-## 作者
+Copyright (c) 2025 18通道舵机控制系统
 
-18轴舵机控制系统 v1.0.0
+## 📞 技术支持
+
+- **问题反馈**: GitHub Issues
+- **测试工具**: `test_servo.py` 自动测试所有功能
+- **调试指南**: 开启 `USB_DEBUG_ENABLE` 查看详细日志
 
 ---
 
-**注意**: 舵机电源必须独立供电，峰值电流可达45A，请使用合适的电源！
+**Version**: 2.0.0-QPC  
+**Last Updated**: 2025-10-23  
+**Status**: ✅ 稳定运行
 
+**注意**: 
+- 舵机电源必须独立供电，峰值电流可达45A！
+- 首次使用请先运行 `test_servo.py` 测试所有功能
+- 上位机图形界面提供完整的编程和调试功能

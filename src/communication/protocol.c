@@ -97,16 +97,14 @@ bool protocol_parse_byte(protocol_parser_t *parser, uint8_t byte) {
         case PARSE_STATE_CRC_L:
             parser->frame.crc |= byte;  // 低字节
             
-            // 验证CRC
-            uint8_t temp_buffer[PROTOCOL_MAX_DATA_LEN + 5];
-            temp_buffer[0] = parser->frame.header[0];
-            temp_buffer[1] = parser->frame.header[1];
-            temp_buffer[2] = parser->frame.id;
-            temp_buffer[3] = parser->frame.cmd;
-            temp_buffer[4] = parser->frame.len;
-            memcpy(&temp_buffer[5], parser->frame.data, parser->frame.len);
+            // 验证CRC（从ID到数据结束，不包括帧头）
+            uint8_t temp_buffer[PROTOCOL_MAX_DATA_LEN + 3];
+            temp_buffer[0] = parser->frame.id;
+            temp_buffer[1] = parser->frame.cmd;
+            temp_buffer[2] = parser->frame.len;
+            memcpy(&temp_buffer[3], parser->frame.data, parser->frame.len);
             
-            uint16_t calculated_crc = crc16_ccitt(temp_buffer, 5 + parser->frame.len);
+            uint16_t calculated_crc = crc16_ccitt(temp_buffer, 3 + parser->frame.len);
             
             if (calculated_crc == parser->frame.crc) {
                 // CRC校验通过

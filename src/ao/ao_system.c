@@ -93,8 +93,15 @@ static QState AO_System_normal(AO_System_t * const me, QEvt const * const e) {
         case LED_UPDATE_SIG: {
             // LED闪烁（正常状态，1秒周期）
             static bool led_state = false;
+            static uint32_t led_count = 0;
             led_state = !led_state;
+            led_count++;
             gpio_put(PIN_LED_BUILTIN, led_state);
+            
+            // 每10秒打印一次心跳
+            if (led_count % 10 == 0) {
+                printf("[AO-SYSTEM] Heartbeat #%lu, LED=%d\n", led_count, led_state);
+            }
             status = Q_HANDLED();
             break;
         }

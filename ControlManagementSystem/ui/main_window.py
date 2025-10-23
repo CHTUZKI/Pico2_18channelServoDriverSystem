@@ -17,7 +17,7 @@ import os
 from datetime import datetime
 from ui.component_palette import ComponentPalette
 from ui.timeline_widget import TimelineWidget
-from ui.dialogs import ComponentEditDialog, SerialSettingsDialog, MotorSettingsDialog
+from ui.dialogs import ComponentEditDialog, SerialSettingsDialog, ServoSettingsDialog
 from core.serial_comm import SerialComm
 from core.servo_commander import ServoCommander
 from core.project_manager import ProjectManager
@@ -1193,7 +1193,7 @@ class MainWindow(QMainWindow):
     
     def update_window_title(self):
         """更新窗口标题"""
-        title = "8轴电机时间轴控制上位机 v1.0.0"
+        title = "18轴舵机时间轴控制上位机 v1.0.0"
         if self.project_manager.get_current_project_path():
             filename = os.path.basename(self.project_manager.get_current_project_path())
             title += f" - {filename}"
@@ -1244,7 +1244,7 @@ class MainWindow(QMainWindow):
     
     def open_motor_settings(self):
         """打开舵机参数设置对话框"""
-        dialog = MotorSettingsDialog(self)
+        dialog = ServoSettingsDialog(self)
         dialog.set_settings(self.servo_settings)
         
         if dialog.exec_() == QDialog.Accepted:
@@ -1297,12 +1297,9 @@ class MainWindow(QMainWindow):
             # 获取所有轨道的运动数据
             motion_data = self.timeline_widget.get_motion_table_data()
             
-            # 生成文字描述
-            table_text = self._format_motion_table(motion_data)
-            
             # 显示在对话框中
             from ui.dialogs import MotionTableDialog
-            dialog = MotionTableDialog(table_text, self)
+            dialog = MotionTableDialog(motion_data, self)
             dialog.exec_()
             
             logger.info("舵机运动表已生成")
@@ -1317,10 +1314,10 @@ class MainWindow(QMainWindow):
         text = "舵机运动逻辑表\n"
         text += "=" * 50 + "\n\n"
         
-        # 舵机名称映射
-        servo_names = ['舵机1', '舵机2', '舵机3', '舵机4', '舵机5', '舵机6', '舵机7', '舵机8']
+        # 获取舵机数量（默认18个）
+        servo_count = self.servo_settings.get('servo_count', 18)
         
-        for motor_id in range(8):
+        for motor_id in range(servo_count):
             track_data = motion_data.get(motor_id, {})
             motor_name = track_data.get('name', f'舵机{motor_id + 1}')
             loop_mode = track_data.get('loop_mode', '单次')

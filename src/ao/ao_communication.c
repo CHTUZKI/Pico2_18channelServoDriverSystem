@@ -25,7 +25,7 @@ Q_DEFINE_THIS_FILE
 
 // ==================== 调试开关 ====================
 // 设置为0关闭USB调试输出，设置为1打开调试输出
-#define USB_DEBUG_ENABLE 0
+#define USB_DEBUG_ENABLE 1
 
 // ==================== Communication AO实例 ====================
 
@@ -176,15 +176,29 @@ static QState AO_Communication_active(AO_Communication_t * const me, QEvt const 
                     }
                 }
                 
-                if (!ring_buffer_is_empty(&me->tx_buffer) && tud_cdc_write_available()) {
-                    uint8_t tx_byte;
-                    size_t sent = 0;
-                    while (ring_buffer_get(&me->tx_buffer, &tx_byte) && sent < 64) {
-                        tud_cdc_write_char(tx_byte);
-                        sent++;
-                    }
-                    if (sent > 0) {
-                        tud_cdc_write_flush();
+                // 发送TX缓冲区中的数据
+                if (!ring_buffer_is_empty(&me->tx_buffer)) {
+                    #if USB_DEBUG_ENABLE
+                    printf("[USB] TX buffer not empty, attempting to send...\n");
+                    #endif
+                    
+                    if (tud_cdc_write_available()) {
+                        uint8_t tx_byte;
+                        size_t sent = 0;
+                        while (ring_buffer_get(&me->tx_buffer, &tx_byte) && sent < 64) {
+                            tud_cdc_write_char(tx_byte);
+                            sent++;
+                        }
+                        if (sent > 0) {
+                            tud_cdc_write_flush();
+                            #if USB_DEBUG_ENABLE
+                            printf("[USB] TX: sent %d bytes\n", sent);
+                            #endif
+                        }
+                    } else {
+                        #if USB_DEBUG_ENABLE
+                        printf("[USB] TX: write not available\n");
+                        #endif
                     }
                 }
             }
@@ -253,13 +267,29 @@ static void handle_move_single(const protocol_frame_t *frame) {
 }
 
 static void handle_move_all(const protocol_frame_t *frame) {
+    #if USB_DEBUG_ENABLE
+    printf("[CMD] MOVE_ALL handler called, len=%d\n", frame->len);
+    #endif
+    
     if (frame->len < 38) {
+        #if USB_DEBUG_ENABLE
+        printf("[CMD] Invalid len: %d < 38\n", frame->len);
+        #endif
         send_response(frame->id, frame->cmd, RESP_INVALID_PARAM, NULL, 0);
         return;
     }
     
+    #if USB_DEBUG_ENABLE
+    printf("[CMD] Allocating MotionStartEvt...\n");
+    #endif
+    
     // 参数验证通过，分配事件
     MotionStartEvt *evt = Q_NEW(MotionStartEvt, MOTION_START_SIG);
+    
+    #if USB_DEBUG_ENABLE
+    printf("[CMD] Event allocated: %p\n", (void*)evt);
+    #endif
+    
     evt->axis_count = SERVO_COUNT;
     
     for (uint8_t i = 0; i < SERVO_COUNT; i++) {
@@ -270,8 +300,24 @@ static void handle_move_all(const protocol_frame_t *frame) {
     
     evt->duration_ms = (frame->data[36] << 8) | frame->data[37];
     
+    #if USB_DEBUG_ENABLE
+    printf("[CMD] Parsed: %d axes, duration=%d ms\n", evt->axis_count, evt->duration_ms);
+    printf("[CMD] Target angles: %.1f %.1f %.1f ...\n", 
+           evt->target_positions[0], evt->target_positions[1], evt->target_positions[2]);
+    printf("[CMD] Posting to AO_Motion...\n");
+    #endif
+    
     QACTIVE_POST(AO_Motion, &evt->super, AO_Communication);
+    
+    #if USB_DEBUG_ENABLE
+    printf("[CMD] Sending OK response...\n");
+    #endif
+    
     send_response(frame->id, frame->cmd, RESP_OK, NULL, 0);
+    
+    #if USB_DEBUG_ENABLE
+    printf("[CMD] MOVE_ALL handler complete\n");
+    #endif
 }
 
 static void handle_get_single(const protocol_frame_t *frame) {
@@ -359,5 +405,10 @@ static void send_response(uint8_t id, uint8_t cmd, uint8_t resp_code,
     #if USB_DEBUG_ENABLE
     printf("[RESP] Built response: len=%d, written=%d, resp_code=%d\n", 
            idx, written, resp_code);
+    printf("[RESP] Frame: ");
+    for (uint16_t i = 0; i < idx && i < 32; i++) {
+        printf("%02X ", resp_buffer[i]);
+    }
+    printf("\n");
     #endif
 }
