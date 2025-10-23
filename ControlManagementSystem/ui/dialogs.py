@@ -29,13 +29,66 @@ class ComponentEditDialog(QDialog):
     def init_ui(self):
         """初始化UI"""
         self.setWindowTitle(f"编辑{self.component.type.value}")
-        self.resize(400, 300)
+        self.resize(450, 350)
+        
+        # 应用白色背景样式
+        self.setStyleSheet("""
+            QDialog {
+                background-color: white;
+                font-size: 12px;
+            }
+            QLabel {
+                color: #333;
+                font-size: 12px;
+            }
+            QGroupBox {
+                font-weight: bold;
+                border: 2px solid #cccccc;
+                border-radius: 5px;
+                margin-top: 1ex;
+                padding-top: 10px;
+                font-size: 12px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                color: #333;
+            }
+            QDoubleSpinBox, QSpinBox {
+                padding: 6px;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+                font-size: 12px;
+                min-height: 20px;
+            }
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 12px;
+                min-width: 80px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+        """)
         
         layout = QVBoxLayout()
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
         
         # 舵机选择
         motor_layout = QFormLayout()
         self.motor_label = QLabel(f"舵机 {self.component.motor_id + 1}")
+        self.motor_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #2c3e50;")
         motor_layout.addRow("舵机:", self.motor_label)
         
         layout.addLayout(motor_layout)
@@ -54,8 +107,41 @@ class ComponentEditDialog(QDialog):
         
         ok_btn = QPushButton("确定")
         ok_btn.clicked.connect(self.accept)
+        ok_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 12px;
+                min-width: 80px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """)
+        
         cancel_btn = QPushButton("取消")
         cancel_btn.clicked.connect(self.reject)
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 12px;
+                min-width: 80px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #da190b;
+            }
+        """)
         
         button_layout.addWidget(ok_btn)
         button_layout.addWidget(cancel_btn)
@@ -139,7 +225,7 @@ class ComponentEditDialog(QDialog):
         
         self.component_updated.emit(self.component)
         super().accept()
-            
+
 
 class SerialSettingsDialog(QDialog):
     """串口设置对话框"""

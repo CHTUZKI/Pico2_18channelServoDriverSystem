@@ -473,31 +473,21 @@ class ComponentWidget(QWidget):
         from ui.dialogs import ComponentEditDialog
         dialog = ComponentEditDialog(self.component, self)
         
-        # 找到MotorTrack实例来连接信号
-        motor_track = self.parent().parent()  # ComponentWidget -> track_widget -> MotorTrack
-        if hasattr(motor_track, '_on_duration_changed'):
-            # 连接持续时间变化信号，让推挤在对话框内部就生效
-            dialog.duration_changed.connect(motor_track._on_duration_changed)
-        
-        # 连接部件更新信号，让对话框能够显示更新后的信息
-        self.component_updated.connect(dialog.update_component_info)
+        # 连接部件更新信号
+        dialog.component_updated.connect(self._on_component_updated_from_dialog)
         
         if dialog.exec_() == QDialog.Accepted:
-            # 更新部件参数
-            updated_component = dialog.get_component()
-            self.component = updated_component
+            # 对话框的accept()方法已经更新了component并发送了信号
+            # 这里只需要更新显示
             self._update_tooltip()
-            
-            # 发送参数更新信号
-            self.component_updated.emit(self.component.id, self.component)
     
-    def _on_duration_changed(self, component_id: str, new_duration: float):
-        """处理持续时间变化，转发给轨道组件"""
-        if component_id == self.component.id:
-            # 转发给父轨道组件
-            track_widget = self.parent()
-            if hasattr(track_widget, '_on_duration_changed'):
-                track_widget._on_duration_changed(component_id, new_duration)
+    def _on_component_updated_from_dialog(self, component: Component):
+        """处理从对话框更新的部件"""
+        self.component = component
+        self._update_tooltip()
+        
+        # 发送更新信号
+        self.component_updated.emit(self.component.id, self.component)
     
     def _delete_component(self):
         """删除部件"""

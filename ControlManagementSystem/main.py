@@ -24,11 +24,11 @@ def main():
     app.setApplicationName("18轴舵机时间轴控制上位机")
     app.setApplicationVersion("1.0.0")
     app.setOrganizationName("ServoController")
-    
+     
     # 设置应用程序属性（必须在创建QApplication之前设置）
     # app.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     # app.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
-    
+     
     # 设置日志
     logger = setup_logger()
     logger.info("应用程序启动")

@@ -146,8 +146,8 @@ class SerialComm(QObject):
         frame.append(len(data))  # 数据长度
         frame.extend(data)  # 数据
         
-        # 计算CRC
-        crc = self.crc16_ccitt(frame)
+        # 计算CRC（从ID到数据结束，不包括帧头）
+        crc = self.crc16_ccitt(frame[2:])
         frame.append((crc >> 8) & 0xFF)  # CRC高字节
         frame.append(crc & 0xFF)          # CRC低字节
         
