@@ -2,7 +2,7 @@
 .pio/
 .pioenvs/
 .piolibdeps/
-lib/
+# lib/  # 注释掉，保留QP/C库在版本控制中
 .vscode/
 .clang_complete
 .gcc-flags.json
