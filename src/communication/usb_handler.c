@@ -27,8 +27,9 @@ static protocol_parser_t g_parser;
 static bool g_usb_connected = false;
 
 bool usb_handler_init(void) {
-    // 初始化stdio（包含USB CDC）
-    stdio_init_all();
+    // 注意：不要在这里调用stdio_init_all()！
+    // USB CDC应该在main()中初始化
+    // 重复初始化会导致TinyUSB状态混乱
     
     // 初始化环形缓冲区
     ring_buffer_init(&g_rx_buffer, g_rx_buffer_mem, USB_RX_BUFFER_SIZE);
@@ -44,6 +45,10 @@ bool usb_handler_init(void) {
 }
 
 void usb_handler_process(void) {
+    // 重要：必须调用tud_task()来处理USB事件
+    // 这是TinyUSB正常工作的关键！
+    tud_task();
+    
     // 检查USB连接状态
     g_usb_connected = tud_cdc_connected();
     

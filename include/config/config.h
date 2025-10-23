@@ -61,28 +61,27 @@
 #define MIN_MOVE_TIME_MS        20          // 最小运动时间
 #define MAX_MOVE_TIME_MS        10000       // 最大运动时间
 
-// ==================== FreeRTOS参数 ====================
-// 任务堆栈大小
-#define TASK_STACK_SIZE_COMM    2048        // 通信任务
-#define TASK_STACK_SIZE_MOTION  2048        // 运动任务
-#define TASK_STACK_SIZE_PWM     1024        // PWM任务
-#define TASK_STACK_SIZE_STATUS  1024        // 状态任务
+// ==================== QP/C参数 ====================
+// 主动对象优先级
+#define AO_PRIORITY_COMM        3           // 通信AO (高)
+#define AO_PRIORITY_MOTION      2           // 运动AO (中)
+#define AO_PRIORITY_SYSTEM      1           // 系统AO (低)
 
-// 任务优先级
-#define TASK_PRIORITY_COMM      3           // 通信任务 (高)
-#define TASK_PRIORITY_MOTION    2           // 运动任务 (中)
-#define TASK_PRIORITY_PWM       4           // PWM任务 (最高)
-#define TASK_PRIORITY_STATUS    1           // 状态任务 (低)
+// 事件队列大小
+#define AO_QUEUE_SIZE_COMM      10          // 通信AO队列
+#define AO_QUEUE_SIZE_MOTION    5           // 运动AO队列
+#define AO_QUEUE_SIZE_SYSTEM    5           // 系统AO队列
 
-// 队列大小
-#define QUEUE_SIZE_CMD          10          // 命令队列
-#define QUEUE_SIZE_STATUS       10          // 状态队列
+// 时间事件周期
+#define TIME_EVENT_INTERP_MS    20          // 插值时间事件周期
+#define TIME_EVENT_LED_MS       1000        // LED时间事件周期
 
 // ==================== Flash存储参数 ====================
 #define FLASH_STORAGE_OFFSET    (256 * 1024)    // Flash偏移地址 (256KB)
-#ifndef FLASH_SECTOR_SIZE
-#define FLASH_SECTOR_SIZE       4096            // Flash扇区大小（如SDK已定义则使用SDK值）
-#endif
+// FLASH_SECTOR_SIZE由Pico SDK定义，不要重复定义
+// #ifndef FLASH_SECTOR_SIZE
+// #define FLASH_SECTOR_SIZE       4096            // Flash扇区大小
+// #endif
 #define FLASH_PARAM_VERSION     1               // 参数版本号
 
 // ==================== 安全参数 ====================

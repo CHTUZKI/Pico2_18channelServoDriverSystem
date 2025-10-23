@@ -10,8 +10,6 @@
 #include "pico/stdlib.h"
 #include <stdio.h>
 #include <string.h>
-#include "FreeRTOS.h"
-#include "task.h"
 
 // 错误状态全局变量
 static error_status_t g_error_status;
@@ -122,27 +120,5 @@ void error_led_update(void) {
     }
 }
 
-/**
- * @brief FreeRTOS断言失败处理函数
- * 在 FreeRTOSConfig.h 中的 configASSERT 宏会调用此函数
- */
-void vAssertCalled(const char *const pcFileName, unsigned long ulLine) {
-    // 禁用中断
-    taskDISABLE_INTERRUPTS();
-    
-    // 设置错误状态
-    error_set(ERROR_SYSTEM_TASK);
-    g_error_status.state = SYSTEM_STATE_ERROR;
-    
-    // 打印断言信息
-    printf("ASSERT FAILED: %s:%lu\n", pcFileName, ulLine);
-    
-    // 进入死循环，快速闪烁LED
-    while (1) {
-        gpio_put(PIN_LED_BUILTIN, 1);
-        for (volatile int i = 0; i < 100000; i++);
-        gpio_put(PIN_LED_BUILTIN, 0);
-        for (volatile int i = 0; i < 100000; i++);
-    }
-}
+// vAssertCalled函数已不再需要（QP/C使用Q_onError替代）
 

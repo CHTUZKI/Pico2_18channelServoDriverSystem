@@ -128,30 +128,59 @@ pio device monitor -e pico2
 
 ## Python测试工具
 
-项目包含Python测试脚本 `test_servo.py`，用于测试舵机控制。
+项目包含两个Python测试工具：
+- `test_servo.py` - 命令行版本
+- `test_servo_gui.py` - 图形界面版本（推荐）
 
 ### 安装依赖
 
 ```bash
+# 命令行版本
 pip install pyserial
+
+# GUI版本
+pip install -r requirements.txt
+# 或者手动安装
+pip install pyserial PyQt5
 ```
 
-### 使用示例
+### GUI版本使用（推荐）
 
-```python
-# 连接设备
-python test_servo.py
+```bash
+python test_servo_gui.py
+```
+
+**功能特性**：
+- ✅ 图形化界面，操作直观
+- ✅ 串口自动检测与连接管理
+- ✅ 单轴/全轴控制面板
+- ✅ 实时通信日志显示
+- ✅ 心跳测试、状态查询
+- ✅ 紧急停止按钮
+- ✅ 支持180°和360°舵机
+
+### 命令行版本使用
+
+```bash
+# 交互模式
+python test_servo.py --port COM3
 
 # 控制单个舵机
 # 舵机0转到90度，速度1000ms
-python test_servo.py --single 0 90 1000
+python test_servo.py --port COM3 --single 0 90 1000
 
 # 控制所有舵机
-# 所有舵机转到90度
-python test_servo.py --all 90
+# 所有舵机转到90度，速度1000ms
+python test_servo.py --port COM3 --all 90 1000
+
+# 心跳测试
+python test_servo.py --port COM3 --ping
 
 # 查询状态
-python test_servo.py --query
+python test_servo.py --port COM3 --query
+
+# 紧急停止
+python test_servo.py --port COM3 --estop
 ```
 
 ## 代码结构
@@ -194,7 +223,9 @@ Pico2_18channelServoDriverSystem/
 │   │   ├── config.h          # 系统参数（包含360度舵机配置）
 │   │   └── pinout.h          # GPIO定义
 │   └── [各模块头文件目录]
-├── test_servo.py              # Python测试工具
+├── test_servo.py              # Python测试工具（命令行版本）
+├── test_servo_gui.py          # Python测试工具（GUI版本）
+├── requirements.txt           # Python依赖列表
 └── SERVO_360_GUIDE.md         # 360度舵机使用指南
 ```
 

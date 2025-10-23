@@ -7,10 +7,10 @@
 #include "servo/servo_360.h"
 #include "pwm/pwm_driver.h"
 #include "utils/error_handler.h"
+#include "pico/stdlib.h"
 #include <string.h>
+#include <stdlib.h>  // for abs()
 #include <math.h>
-#include "FreeRTOS.h"
-#include "task.h"
 
 // ==================== 内部数据结构 ====================
 
@@ -163,19 +163,19 @@ bool servo_360_set_speed(uint8_t id, int8_t speed) {
     servo_360_t *servo = &g_servo_360[id];
     
     // 检查是否需要方向切换延迟
-    if (needs_direction_change_delay(servo->current_speed, speed) && 
-        SERVO_360_DIRECTION_CHANGE_DELAY_MS > 0) {
-        // 先减速到停止
+    // 在QP/C事件驱动系统中，不能使用阻塞延迟
+    // 方向切换由servo_360_update()在后续调用中自动处理
+    if (needs_direction_change_delay(servo->current_speed, speed)) {
+        // 先设置为停止，下次update会逐步减速
         servo->target_speed = 0;
         servo_360_update(id);
-        
-        // 等待停止
-        vTaskDelay(pdMS_TO_TICKS(SERVO_360_DIRECTION_CHANGE_DELAY_MS));
+        // 注意：实际的方向切换由调用者控制时序
+        // 或者等待下一次update周期自然完成
     }
     
     // 设置目标速度
     servo->target_speed = speed;
-    servo->last_cmd_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    servo->last_cmd_ms = to_ms_since_boot(get_absolute_time());
     servo->soft_stopping = false;
     
     return true;
@@ -274,15 +274,15 @@ bool servo_360_calibrate_neutral(uint8_t id, uint32_t timeout_ms) {
     uint16_t high = SERVO_360_MAX_PULSE_US;
     uint16_t best_neutral = SERVO_CENTER_PULSE_US;
     
-    uint32_t start_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    uint32_t start_time = to_ms_since_boot(get_absolute_time());
     
     while ((high - low) > 10 && 
-           (xTaskGetTickCount() * portTICK_PERIOD_MS - start_time) < timeout_ms) {
+           (to_ms_since_boot(get_absolute_time()) - start_time) < timeout_ms) {
         uint16_t mid = (low + high) / 2;
         
         // 尝试这个脉宽
         pwm_set_pulse(id, mid);
-        vTaskDelay(pdMS_TO_TICKS(100));  // 等待稳定
+        sleep_ms(100);  // 校准时的等待是允许的（不在事件循环中）
         
         // 这里需要外部反馈判断是否在转动
         // 简化实现：假设1500μs附近是中点
@@ -343,7 +343,7 @@ void servo_360_update(uint8_t id) {
     }
     
     servo_360_t *servo = &g_servo_360[id];
-    uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    uint32_t now = to_ms_since_boot(get_absolute_time());
     
     // 超时保护
     if (SERVO_360_TIMEOUT_MS > 0 && 

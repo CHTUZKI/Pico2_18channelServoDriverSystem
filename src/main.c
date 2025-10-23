@@ -1,121 +1,136 @@
 /**
  * @file main.c
- * @brief 18轴舵机控制系统 - 主程序
- * @date 2025-10-21
- * @version 1.0.0
+ * @brief 18轴舵机控制系统 - QP/C主程序
+ * @date 2025-10-23
+ * @version 2.0.0-QPC
  * 
  * 系统架构：
- * - Core 0: 通信任务、运动控制任务
- * - Core 1: PWM任务（高优先级）
- * - 基于FreeRTOS双核调度
+ * - QP/C事件驱动框架
+ * - QV协作式内核
+ * - 3个主动对象：Communication, Motion, System
  */
 
 #include <stdio.h>
 #include "pico/stdlib.h"
-#include "pico/multicore.h"
-
-// FreeRTOS (使用Pico SDK内置)
-#include <FreeRTOS.h>
-#include <task.h>
+#include "qpc.h"
 
 // 配置
 #include "config/config.h"
 #include "config/pinout.h"
 
-// 模块
+// 事件
+#include "events/events.h"
+#include "events/event_types.h"
+
+// 主动对象
+#include "ao/ao_communication.h"
+#include "ao/ao_motion.h"
+#include "ao/ao_system.h"
+
+// 底层模块
 #include "pwm/pwm_driver.h"
 #include "servo/servo_control.h"
-#include "communication/usb_handler.h"
+#include "servo/servo_manager.h"
 #include "storage/param_manager.h"
 #include "utils/error_handler.h"
 
-// 任务
-#include "tasks/task_communication.h"
-#include "tasks/task_motion.h"
-#include "tasks/task_pwm.h"
+// ==================== 事件池定义 ====================
 
-// 系统初始化标志
-static bool g_system_initialized = false;
+// 小事件池（用于简单事件）
+static QF_MPOOL_EL(QEvt) small_pool_sto[20];
+
+// 中等事件池（用于单轴移动事件）
+static QF_MPOOL_EL(MoveSingleEvt) medium_pool_sto[10];
+
+// 大事件池（用于全轴移动事件）
+static QF_MPOOL_EL(MoveAllEvt) large_pool_sto[5];
+
+// ==================== 系统初始化 ====================
 
 /**
- * @brief 系统初始化
- * @return true 成功, false 失败
+ * @brief 硬件和底层模块初始化
  */
-bool system_init(void) {
+static bool hardware_init(void) {
+    printf("\n[INIT] Hardware initialization...\n");
+    
     // 1. 初始化错误处理
+    printf("[INIT] Error handler...\n");
     error_handler_init();
     
     // 2. 初始化PWM系统
+    printf("[INIT] PWM system...\n");
     if (!pwm_init_all()) {
-        error_set(ERROR_SYSTEM_INIT);
+        printf("[ERROR] PWM init failed!\n");
         return false;
     }
     
     // 3. 初始化舵机控制
+    printf("[INIT] Servo control...\n");
     if (!servo_control_init()) {
-        error_set(ERROR_SYSTEM_INIT);
+        printf("[ERROR] Servo init failed!\n");
         return false;
     }
     
-    // 4. 初始化参数管理（加载Flash参数）
-    if (!param_manager_init()) {
-        error_set(ERROR_SYSTEM_INIT);
-        // 参数加载失败不是致命错误，使用默认值继续
+    // 4. 初始化舵机管理器（支持180度+360度）
+    printf("[INIT] Servo manager...\n");
+    if (!servo_manager_init()) {
+        printf("[ERROR] Servo manager init failed!\n");
+        return false;
     }
     
-    // 5. 设置所有舵机到中位
+    // 5. 初始化参数管理（加载Flash参数）
+    printf("[INIT] Param manager...\n");
+    if (!param_manager_init()) {
+        printf("[WARNING] Param load failed, using defaults.\n");
+    }
+    
+    // 6. 设置所有舵机到中位
+    printf("[INIT] Setting servos to center...\n");
     float center_angles[SERVO_COUNT];
     for (int i = 0; i < SERVO_COUNT; i++) {
-        center_angles[i] = 90.0f;  // 中位角度
+        center_angles[i] = 90.0f;
     }
     servo_set_all_angles(center_angles);
     
-    // 6. 设置系统状态
-    system_set_state(SYSTEM_STATE_IDLE);
-    
-    g_system_initialized = true;
+    printf("[INIT] Hardware init complete!\n\n");
     return true;
 }
 
-/**
- * @brief Core 1 入口函数
- */
-void core1_entry(void) {
-    // Core 1 运行FreeRTOS调度器
-    // PWM任务会自动绑定到Core 1
-    vTaskStartScheduler();
-    
-    // 不应该到达这里
-    while (1) {
-        tight_loop_contents();
-    }
-}
+// ==================== 主函数 ====================
 
-/**
- * @brief 主函数
- */
 int main(void) {
-    // 初始化标准库
+    // ========== 早期初始化 ==========
+    // LED作为早期调试指示
+    gpio_init(PIN_LED_BUILTIN);
+    gpio_set_dir(PIN_LED_BUILTIN, GPIO_OUT);
+    gpio_put(PIN_LED_BUILTIN, 1);  // 点亮
+    
+    // 初始化USB CDC
     stdio_init_all();
+    sleep_ms(2000);  // 等待USB枚举
     
-    // 延迟等待USB稳定
-    sleep_ms(1000);
+    // LED闪烁2次表示USB就绪
+    for (int i = 0; i < 2; i++) {
+        gpio_put(PIN_LED_BUILTIN, 0);
+        sleep_ms(100);
+        gpio_put(PIN_LED_BUILTIN, 1);
+        sleep_ms(100);
+    }
     
+    // ========== 打印启动信息 ==========
     printf("\n\n");
     printf("========================================\n");
     printf("  18-Channel Servo Controller\n");
-    printf("  Version: %d.%d.%d\n", SYSTEM_VERSION_MAJOR, SYSTEM_VERSION_MINOR, SYSTEM_VERSION_PATCH);
+    printf("  Version: %d.%d.%d-QPC\n", SYSTEM_VERSION_MAJOR, SYSTEM_VERSION_MINOR, SYSTEM_VERSION_PATCH);
     printf("  Platform: RP2350 @ 150MHz\n");
-    printf("  FreeRTOS Dual-Core\n");
+    printf("  Framework: QP/C %s (QV Kernel)\n", QP_VERSION_STR);
     printf("========================================\n\n");
     
-    // 系统初始化
-    printf("Initializing system...\n");
-    if (!system_init()) {
-        printf("ERROR: System initialization failed!\n");
-        error_set(ERROR_SYSTEM_INIT);
+    // ========== 硬件初始化 ==========
+    if (!hardware_init()) {
+        printf("[CRITICAL] Hardware initialization failed!\n");
         
-        // 进入错误状态，LED快速闪烁
+        // LED快速闪烁表示错误
         while (1) {
             gpio_put(PIN_LED_BUILTIN, 1);
             sleep_ms(100);
@@ -123,92 +138,74 @@ int main(void) {
             sleep_ms(100);
         }
     }
-    printf("System initialized successfully.\n\n");
     
-    // 创建任务（Core 0）
-    printf("Creating tasks...\n");
+    // ========== QP/C初始化 ==========
+    printf("[QP] Initializing QP/C framework...\n");
+    QF_init();  // 初始化QP框架
     
-    if (task_communication_create() != pdPASS) {
-        printf("ERROR: Failed to create communication task!\n");
-        error_set(ERROR_SYSTEM_TASK);
+    // 初始化事件池
+    printf("[QP] Initializing event pools...\n");
+    QF_poolInit(small_pool_sto, sizeof(small_pool_sto), sizeof(QEvt));
+    QF_poolInit(medium_pool_sto, sizeof(medium_pool_sto), sizeof(MoveSingleEvt));
+    QF_poolInit(large_pool_sto, sizeof(large_pool_sto), sizeof(MoveAllEvt));
+    
+    // ========== 创建主动对象 ==========
+    printf("[QP] Constructing Active Objects...\n");
+    AO_Communication_ctor();
+    AO_Motion_ctor();
+    AO_System_ctor();
+    
+    // ========== 启动主动对象 ==========
+    printf("[QP] Starting Active Objects...\n");
+    
+    // Communication AO事件队列
+    static QEvt const *comm_queue_sto[AO_QUEUE_SIZE_COMM];
+    QACTIVE_START(AO_Communication,
+                  AO_PRIORITY_COMM,         // 优先级
+                  comm_queue_sto,           // 事件队列存储
+                  Q_DIM(comm_queue_sto),    // 队列长度
+                  (void *)0,                // 栈（QV不需要）
+                  0U,                       // 栈大小
+                  (void *)0);               // 初始化参数
+    
+    // Motion AO事件队列
+    static QEvt const *motion_queue_sto[AO_QUEUE_SIZE_MOTION];
+    QACTIVE_START(AO_Motion,
+                  AO_PRIORITY_MOTION,
+                  motion_queue_sto,
+                  Q_DIM(motion_queue_sto),
+                  (void *)0,
+                  0U,
+                  (void *)0);
+    
+    // System AO事件队列
+    static QEvt const *system_queue_sto[AO_QUEUE_SIZE_SYSTEM];
+    QACTIVE_START(AO_System,
+                  AO_PRIORITY_SYSTEM,
+                  system_queue_sto,
+                  Q_DIM(system_queue_sto),
+                  (void *)0,
+                  0U,
+                  (void *)0);
+    
+    printf("[QP] All Active Objects started successfully!\n");
+    printf("[QP] System ready. Starting event loop...\n");
+    printf("========================================\n\n");
+    
+    // LED闪烁3次表示即将进入QP事件循环
+    for (int i = 0; i < 3; i++) {
+        gpio_put(PIN_LED_BUILTIN, 0);
+        sleep_ms(200);
+        gpio_put(PIN_LED_BUILTIN, 1);
+        sleep_ms(200);
     }
     
-    if (task_motion_create() != pdPASS) {
-        printf("ERROR: Failed to create motion task!\n");
-        error_set(ERROR_SYSTEM_TASK);
-    }
-    
-    if (task_pwm_create() != pdPASS) {
-        printf("ERROR: Failed to create PWM task!\n");
-        error_set(ERROR_SYSTEM_TASK);
-    }
-    
-    printf("Tasks created successfully.\n");
-    printf("Starting FreeRTOS scheduler...\n\n");
-    
-    // 启动Core 1
-    multicore_launch_core1(core1_entry);
-    
-    // 延迟一下，确保Core 1启动
     sleep_ms(100);
     
-    // 在Core 0启动调度器
-    vTaskStartScheduler();
+    // ========== 运行QP事件循环 ==========
+    printf("[QP] >>> Entering QF_run() event loop <<<\n");
+    printf("If LED starts blinking slowly, QP is running!\n\n");
+    sleep_ms(100);
     
-    // 不应该到达这里
-    printf("ERROR: Scheduler returned!\n");
-    while (1) {
-        tight_loop_contents();
-    }
-    
-    return 0;
-}
-
-/**
- * @brief FreeRTOS malloc失败钩子
- */
-void vApplicationMallocFailedHook(void) {
-    error_set(ERROR_SYSTEM_MEMORY);
-    printf("ERROR: FreeRTOS malloc failed!\n");
-    
-    // 进入死循环
-    while (1) {
-        gpio_put(PIN_LED_BUILTIN, 1);
-        sleep_ms(50);
-        gpio_put(PIN_LED_BUILTIN, 0);
-        sleep_ms(50);
-    }
-}
-
-/**
- * @brief FreeRTOS 栈溢出钩子
- */
-void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName) {
-    (void)xTask;
-    error_set(ERROR_SYSTEM_MEMORY);
-    printf("ERROR: Stack overflow in task: %s\n", pcTaskName);
-    
-    // 进入死循环
-    while (1) {
-        gpio_put(PIN_LED_BUILTIN, 1);
-        sleep_ms(50);
-        gpio_put(PIN_LED_BUILTIN, 0);
-        sleep_ms(50);
-    }
-}
-
-/**
- * @brief FreeRTOS 空闲钩子
- */
-void vApplicationIdleHook(void) {
-    // 空闲任务，可以在这里做低优先级工作
-    // 例如：看门狗喂狗、低功耗模式等
-}
-
-/**
- * @brief FreeRTOS Tick钩子
- */
-void vApplicationTickHook(void) {
-    // 每个Tick调用一次
-    // 可以用于定时任务
+    return QF_run();  // 运行QP事件循环（永不返回）
 }
