@@ -12,6 +12,14 @@
 #define SYSTEM_VERSION_MINOR    0
 #define SYSTEM_VERSION_PATCH    0
 
+// ==================== 调试开关 ====================
+#define DEBUG_ENABLE            1       // 主调试开关
+#define DEBUG_USB               1       // USB通信调试
+#define DEBUG_MOTION            1       // 运动插值调试
+#define DEBUG_SERVO             1       // 舵机角度转换调试
+#define DEBUG_PWM               1       // PWM调试
+#define DEBUG_SYSTEM            1       // 系统心跳调试
+
 // ==================== 舵机参数 ====================
 #define SERVO_COUNT             18          // 舵机数量
 
@@ -73,7 +81,7 @@
 #define AO_QUEUE_SIZE_SYSTEM    5           // 系统AO队列
 
 // 时间事件周期
-#define TIME_EVENT_INTERP_MS    20          // 插值时间事件周期
+#define TIME_EVENT_INTERP_MS    50          // 插值时间事件周期（增加到50ms）
 #define TIME_EVENT_LED_MS       1000        // LED时间事件周期
 
 // ==================== Flash存储参数 ====================

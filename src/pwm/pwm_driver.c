@@ -6,11 +6,20 @@
 
 #include "pwm/pwm_driver.h"
 #include "config/pinout.h"
+#include "config/config.h"
 #include "utils/error_handler.h"
 #include "pico/stdlib.h"
 #include "hardware/pwm.h"
 #include "hardware/clocks.h"
 #include <string.h>
+#include <stdio.h>
+
+// ==================== 调试宏 ====================
+#if DEBUG_PWM
+    #define PWM_DEBUG(...) printf(__VA_ARGS__)
+#else
+    #define PWM_DEBUG(...) ((void)0)
+#endif
 
 // PWM通道配置表
 static pwm_channel_t g_pwm_channels[SERVO_COUNT];
@@ -30,6 +39,8 @@ static bool init_hardware_pwm(uint8_t gpio, pwm_channel_t *channel) {
     uint slice_num = pwm_gpio_to_slice_num(gpio);
     uint chan = pwm_gpio_to_channel(gpio);
     
+    PWM_DEBUG("[PWM] Init GPIO%d -> Slice%d Chan%c\n", gpio, slice_num, chan ? 'B' : 'A');
+    
     // 配置GPIO为PWM功能
     gpio_set_function(gpio, GPIO_FUNC_PWM);
     
@@ -38,11 +49,18 @@ static bool init_hardware_pwm(uint8_t gpio, pwm_channel_t *channel) {
     
     // 计算分频器: 系统时钟 / 分频器 = 2MHz
     // 假设系统时钟125MHz: 125MHz / 62.5 = 2MHz
-    float div = (float)clock_get_hz(clk_sys) / HW_PWM_FREQ;
+    uint32_t sys_clk = clock_get_hz(clk_sys);
+    float div = (float)sys_clk / HW_PWM_FREQ;
     pwm_config_set_clkdiv(&config, div);
     
     // 设置PWM周期 (20ms = 40000 个 0.5μs)
     pwm_config_set_wrap(&config, HW_PWM_WRAP - 1);
+    
+    // 调试：显示PWM配置
+    if (gpio == 0) {
+        PWM_DEBUG("[PWM] GPIO0 Config: SysClk=%luHz, Div=%.2f, Wrap=%d\n", 
+                 sys_clk, div, HW_PWM_WRAP - 1);
+    }
     
     // 应用配置
     pwm_init(slice_num, &config, false);  // 先不启动
@@ -74,7 +92,14 @@ bool pwm_init_all(void) {
     // 启动所有PWM切片（统一启动，保证同步）
     for (int slice = 0; slice < 8; slice++) {
         pwm_set_enabled(slice, true);
+        PWM_DEBUG("[PWM] Slice %d enabled\n", slice);
     }
+    
+    PWM_DEBUG("[PWM] All PWM slices initialized and enabled\n");
+    
+    // 测试：GPIO0输出明显的PWM信号 (10% duty cycle)
+    pwm_set_chan_level(0, 0, 4000);  // 10% of 40000
+    PWM_DEBUG("[PWM] Test: GPIO0 set to 10%% duty cycle (level=4000)\n");
     
     return true;
 }
@@ -103,8 +128,27 @@ bool pwm_set_pulse(uint8_t channel, uint16_t pulse_us) {
     
     if (g_pwm_channels[channel].enabled) {
         pwm_set_chan_level(slice, chan, level);
+        
+        // Channel 0 总是输出详细调试信息
+        static uint32_t pwm_debug_count = 0;
+        pwm_debug_count++;
+        if (channel == 0) {
+            // 验证PWM slice是否真的使能
+            bool slice_enabled = pwm_is_enabled(slice);
+            PWM_DEBUG("[PWM] Ch%d: GPIO%d pulse=%dus, level=%d, slice%d=%s\n", 
+                     channel, g_pwm_channels[channel].gpio, pulse_us, level, slice, 
+                     slice_enabled ? "EN" : "DIS");
+        } else if (pwm_debug_count % 20 == 0) {
+            PWM_DEBUG("[PWM] Channel %d: pulse=%dus, level=%d, enabled=1\n", channel, pulse_us, level);
+        }
     } else {
         pwm_set_chan_level(slice, chan, 0);
+        // Channel 0 总是输出调试信息，其他通道减少频率
+        static uint32_t pwm_debug_count_disabled = 0;
+        pwm_debug_count_disabled++;
+        if (channel == 0 || pwm_debug_count_disabled % 20 == 0) {
+            PWM_DEBUG("[PWM] Channel %d: pulse=%dus, level=%d, enabled=0\n", channel, pulse_us, level);
+        }
     }
     
     return true;
@@ -134,9 +178,21 @@ void pwm_enable_channel(uint8_t channel, bool enable) {
         // 使能：输出当前脉宽
         uint16_t level = g_pwm_channels[channel].pulse_us * 2;
         pwm_set_chan_level(slice, chan, level);
+        
+        // Channel 0 总是输出调试信息
+        if (channel == 0) {
+            PWM_DEBUG("[PWM] Enable Ch%d: GPIO%d, pulse=%dus, level=%d, slice%d\n", 
+                     channel, g_pwm_channels[channel].gpio, 
+                     g_pwm_channels[channel].pulse_us, level, slice);
+        }
     } else {
         // 禁用：输出0
         pwm_set_chan_level(slice, chan, 0);
+        
+        if (channel == 0) {
+            PWM_DEBUG("[PWM] Disable Ch%d: GPIO%d, level=0\n", 
+                     channel, g_pwm_channels[channel].gpio);
+        }
     }
 }
 

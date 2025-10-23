@@ -17,6 +17,13 @@
 
 Q_DEFINE_THIS_FILE
 
+// ==================== 调试宏 ====================
+#if DEBUG_MOTION
+    #define MOTION_DEBUG(...) printf(__VA_ARGS__)
+#else
+    #define MOTION_DEBUG(...) ((void)0)
+#endif
+
 // ==================== Motion AO实例 ====================
 
 AO_Motion_t AO_Motion_inst;
@@ -54,7 +61,7 @@ void AO_Motion_ctor(void) {
 static QState AO_Motion_initial(AO_Motion_t * const me, void const * const par) {
     (void)par;
     
-    printf("[AO-MOTION] Initial state\n");
+    MOTION_DEBUG("[AO-MOTION] Initial state\n");
     
     // 启动插值定时器（20ms周期）
     QTimeEvt_armX(&me->interp_timer, 
@@ -73,14 +80,14 @@ static QState AO_Motion_idle(AO_Motion_t * const me, QEvt const * const e) {
     
     switch (e->sig) {
         case Q_ENTRY_SIG: {
-            printf("[AO-MOTION] >>> Entering IDLE state <<<\n");
+            MOTION_DEBUG("[AO-MOTION] >>> Entering IDLE state <<<\n");
             me->is_moving = false;
             status = Q_HANDLED();
             break;
         }
         
         case Q_EXIT_SIG: {
-            printf("[AO-MOTION] Exiting IDLE state\n");
+            MOTION_DEBUG("[AO-MOTION] Exiting IDLE state\n");
             status = Q_HANDLED();
             break;
         }
@@ -89,7 +96,7 @@ static QState AO_Motion_idle(AO_Motion_t * const me, QEvt const * const e) {
             // 开始运动
             MotionStartEvt const *evt = Q_EVT_CAST(MotionStartEvt);
             
-            printf("[AO-MOTION] Motion start, axis_count=%d, duration=%d ms\n", 
+            MOTION_DEBUG("[AO-MOTION] Motion start, axis_count=%d, duration=%d ms\n", 
                    evt->axis_count, evt->duration_ms);
             
             // 设置插值器 - 初始化所有舵机的起始位置
@@ -99,8 +106,23 @@ static QState AO_Motion_idle(AO_Motion_t * const me, QEvt const * const e) {
                 start_positions[i] = servo_get_angle(i);
             }
             
-            // 暂时移除浮点printf，避免可能的问题
-            printf("[AO-MOTION] Setting up interpolator for all axes\n");
+            // 调试：打印起始位置（避免浮点printf问题）
+            MOTION_DEBUG("[AO-MOTION] Start positions: ");
+            for (int i = 0; i < SERVO_COUNT; i++) {
+                int angle_int = (int)(start_positions[i] * 10);
+                printf("%d.%d ", angle_int / 10, angle_int % 10);
+            }
+            printf("\n");
+            
+            // 调试：打印目标位置（避免浮点printf问题）
+            MOTION_DEBUG("[AO-MOTION] Target positions: ");
+            for (int i = 0; i < SERVO_COUNT; i++) {
+                int angle_int = (int)(evt->target_positions[i] * 10);
+                printf("%d.%d ", angle_int / 10, angle_int % 10);
+            }
+            printf("\n");
+            
+            MOTION_DEBUG("[AO-MOTION] Setting up interpolator for all axes\n");
             
             multi_interpolator_set_motion(&me->interpolator,
                                         start_positions,
@@ -121,7 +143,7 @@ static QState AO_Motion_idle(AO_Motion_t * const me, QEvt const * const e) {
         
         case ESTOP_SIG: {
             // 空闲状态下收到急停，直接处理
-            printf("[AO-MOTION] ESTOP in IDLE (no action needed)\n");
+            MOTION_DEBUG("[AO-MOTION] ESTOP in IDLE (no action needed)\n");
             status = Q_HANDLED();
             break;
         }
@@ -143,14 +165,14 @@ static QState AO_Motion_moving(AO_Motion_t * const me, QEvt const * const e) {
     
     switch (e->sig) {
         case Q_ENTRY_SIG: {
-            printf("[AO-MOTION] Entering MOVING state\n");
+            MOTION_DEBUG("[AO-MOTION] Entering MOVING state\n");
             me->is_moving = true;
             status = Q_HANDLED();
             break;
         }
         
         case Q_EXIT_SIG: {
-            printf("[AO-MOTION] Exiting MOVING state\n");
+            MOTION_DEBUG("[AO-MOTION] Exiting MOVING state\n");
             me->is_moving = false;
             status = Q_HANDLED();
             break;
@@ -163,6 +185,35 @@ static QState AO_Motion_moving(AO_Motion_t * const me, QEvt const * const e) {
                                      TIME_EVENT_INTERP_MS, 
                                      output_positions);
             
+            // 错误检查：防止无效值导致卡死
+            bool valid_output = true;
+            for (int i = 0; i < SERVO_COUNT; i++) {
+                if (output_positions[i] < -180.0f || output_positions[i] > 180.0f || 
+                    isnan(output_positions[i]) || isinf(output_positions[i])) {
+                    valid_output = false;
+                    MOTION_DEBUG("[AO-MOTION] ERROR: Invalid output position[%d] = %.1f\n", i, output_positions[i]);
+                    break;
+                }
+            }
+            
+            if (!valid_output) {
+                MOTION_DEBUG("[AO-MOTION] ERROR: Invalid interpolator output, stopping motion\n");
+                status = Q_TRAN(&AO_Motion_idle);
+                break;
+            }
+            
+            // 调试：减少输出频率（每10次输出一次）
+            static uint32_t debug_count = 0;
+            debug_count++;
+            if (debug_count % 10 == 0) {
+                MOTION_DEBUG("[AO-MOTION] Interpolator output: ");
+                for (int i = 0; i < SERVO_COUNT; i++) {
+                    int angle_int = (int)(output_positions[i] * 10);
+                    printf("%d.%d° ", angle_int / 10, angle_int % 10);
+                }
+                printf("\n");
+            }
+            
             // 应用到舵机
             servo_set_all_angles(output_positions);
             
@@ -170,12 +221,12 @@ static QState AO_Motion_moving(AO_Motion_t * const me, QEvt const * const e) {
             static uint32_t tick_count = 0;
             tick_count++;
             if (tick_count % 25 == 0) {  // 每500ms打印一次
-                printf("[AO-MOTION] TICK #%lu\n", tick_count);
+                MOTION_DEBUG("[AO-MOTION] TICK #%lu\n", tick_count);
             }
             
             // 检查是否到达
             if (multi_interpolator_all_reached(&me->interpolator)) {
-                printf("[AO-MOTION] Motion complete! Transitioning to IDLE...\n");
+                MOTION_DEBUG("[AO-MOTION] Motion complete! Transitioning to IDLE...\n");
                 tick_count = 0;  // 重置计数器
                 
                 // 暂时注释掉PUBLISH，看是否是问题所在
@@ -184,7 +235,7 @@ static QState AO_Motion_moving(AO_Motion_t * const me, QEvt const * const e) {
                 
                 // 返回idle状态
                 status = Q_TRAN(&AO_Motion_idle);
-                printf("[AO-MOTION] Q_TRAN called\n");
+                MOTION_DEBUG("[AO-MOTION] Q_TRAN called\n");
             } else {
                 status = Q_HANDLED();
             }
@@ -194,7 +245,7 @@ static QState AO_Motion_moving(AO_Motion_t * const me, QEvt const * const e) {
         case MOTION_STOP_SIG:
         case ESTOP_SIG: {
             // 停止运动
-            printf("[AO-MOTION] Motion stopped\n");
+            MOTION_DEBUG("[AO-MOTION] Motion stopped\n");
             
             // 停止插值器
             for (uint8_t i = 0; i < SERVO_COUNT; i++) {

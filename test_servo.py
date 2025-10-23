@@ -418,10 +418,72 @@ class ServoTester:
         else:
             self.log("✗ 参数加载失败")
             
+    def test_cycle_motion(self, cycles: int = 10):
+        """循环测试：所有轴 0° → 180° → 0°"""
+        self.log("\n" + "="*60)
+        self.log(f"循环运动测试 - {cycles}次循环 (0° → 180° → 0°)")
+        self.log("="*60)
+        
+        duration = 2000  # 每次运动2秒
+        
+        for cycle in range(cycles):
+            self.log(f"\n--- 第 {cycle + 1}/{cycles} 次循环 ---")
+            
+            # 第1步：所有舵机移动到 0°
+            self.log(f"所有舵机移动到 0° (用时{duration}ms)...")
+            angles_0 = [0.0] * 18
+            data = bytearray()
+            for angle in angles_0:
+                angle_int = int(angle * 100)
+                data.extend(struct.pack('>H', angle_int))
+            data.extend(struct.pack('>H', duration))
+            
+            response = self.send_command(0x00, self.CMD_MOVE_ALL, bytes(data))
+            if response and response[2] == self.RESP_OK:
+                self.log(f"✓ 运动命令发送成功")
+            else:
+                self.log(f"✗ 运动命令失败")
+                return
+            
+            time.sleep(duration / 1000.0 + 0.2)  # 等待运动完成
+            
+            # 第2步：所有舵机移动到 180°
+            self.log(f"所有舵机移动到 180° (用时{duration}ms)...")
+            angles_180 = [180.0] * 18
+            data = bytearray()
+            for angle in angles_180:
+                angle_int = int(angle * 100)
+                data.extend(struct.pack('>H', angle_int))
+            data.extend(struct.pack('>H', duration))
+            
+            response = self.send_command(0x00, self.CMD_MOVE_ALL, bytes(data))
+            if response and response[2] == self.RESP_OK:
+                self.log(f"✓ 运动命令发送成功")
+            else:
+                self.log(f"✗ 运动命令失败")
+                return
+            
+            time.sleep(duration / 1000.0 + 0.2)  # 等待运动完成
+        
+        # 最后回到 0°
+        self.log(f"\n最后回到 0° (用时{duration}ms)...")
+        angles_0 = [0.0] * 18
+        data = bytearray()
+        for angle in angles_0:
+            angle_int = int(angle * 100)
+            data.extend(struct.pack('>H', angle_int))
+        data.extend(struct.pack('>H', duration))
+        
+        response = self.send_command(0x00, self.CMD_MOVE_ALL, bytes(data))
+        if response and response[2] == self.RESP_OK:
+            self.log(f"✓ 循环测试完成!")
+        else:
+            self.log(f"✗ 最后一步失败")
+    
     def run_all_tests(self):
         """运行所有测试"""
         self.log("\n" + "="*80)
-        self.log("开始18通道舵机控制系统功能测试")
+        self.log("开始18通道舵机控制系统循环运动测试")
         self.log("="*80)
         
         if not self.connect():
@@ -429,36 +491,24 @@ class ServoTester:
             return
             
         try:
-            # 运行所有测试
-            self.test_ping()
+            # 1. 使能所有舵机
+            self.log("\n" + "="*60)
+            self.log("步骤1: 使能所有舵机")
+            self.log("="*60)
+            
+            data = struct.pack('B', 0xFF)  # 0xFF表示全部
+            response = self.send_command(0x00, self.CMD_ENABLE, data)
+            
+            if response and response[2] == self.RESP_OK:
+                self.log("✓ 所有舵机使能成功")
+            else:
+                self.log("✗ 所有舵机使能失败，测试终止")
+                return
+            
             time.sleep(0.5)
             
-            self.test_enable_single()
-            time.sleep(0.5)
-            
-            self.test_enable_all()
-            time.sleep(0.5)
-            
-            self.test_move_single()
-            time.sleep(0.5)
-            
-            self.test_move_all()
-            time.sleep(0.5)
-            
-            self.test_get_single()
-            time.sleep(0.5)
-            
-            self.test_get_all()
-            time.sleep(0.5)
-            
-            self.test_disable_single()
-            time.sleep(0.5)
-            
-            # Flash操作测试（可选，会写入Flash）
-            # self.test_save_flash()
-            # time.sleep(0.5)
-            # self.test_load_flash()
-            # time.sleep(0.5)
+            # 2. 循环运动测试
+            self.test_cycle_motion(cycles=10)
             
             self.log("\n" + "="*80)
             self.log("所有测试完成!")

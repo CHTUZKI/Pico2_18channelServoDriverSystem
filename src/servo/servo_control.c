@@ -7,8 +7,17 @@
 #include "servo/servo_control.h"
 #include "pwm/pwm_driver.h"
 #include "utils/error_handler.h"
+#include "config/config.h"
 #include <string.h>
 #include <math.h>
+#include <stdio.h>
+
+// ==================== 调试宏 ====================
+#if DEBUG_SERVO
+    #define SERVO_DEBUG(...) printf(__VA_ARGS__)
+#else
+    #define SERVO_DEBUG(...) ((void)0)
+#endif
 
 // 舵机参数数组
 static servo_t g_servos[SERVO_COUNT];
@@ -63,6 +72,15 @@ uint16_t servo_angle_to_pulse(uint8_t id, float angle) {
     // 限制脉宽范围
     if (pulse < SERVO_MIN_PULSE_US) pulse = SERVO_MIN_PULSE_US;
     if (pulse > SERVO_MAX_PULSE_US) pulse = SERVO_MAX_PULSE_US;
+    
+    // 调试：打印角度转换过程（避免浮点printf问题）
+    static uint32_t angle_debug_count = 0;
+    angle_debug_count++;
+    if (angle_debug_count % 10 == 0) {
+        int angle_int = (int)(angle * 10);
+        SERVO_DEBUG("[SERVO] Angle conversion: %d.%d° -> %dμs (range: %d-%d)\n", 
+               angle_int / 10, angle_int % 10, (uint16_t)pulse, cal->min_pulse_us, cal->max_pulse_us);
+    }
     
     return (uint16_t)pulse;
 }
@@ -162,7 +180,18 @@ bool servo_set_all_angles(const float angles[SERVO_COUNT]) {
         g_servos[i].current_pulse_us = pulses[i];
     }
     
-    // 批量更新PWM
+    // 批量更新PWM（减少调试输出频率）
+    static uint32_t servo_debug_count = 0;
+    servo_debug_count++;
+    if (servo_debug_count % 10 == 0) {
+        SERVO_DEBUG("[SERVO] Setting all angles: ");
+        for (int i = 0; i < SERVO_COUNT; i++) {
+            int angle_int = (int)(angles[i] * 10);
+            printf("%d.%d° ", angle_int / 10, angle_int % 10);
+        }
+        printf("\n");
+    }
+    
     return pwm_set_all_pulses(pulses);
 }
 
