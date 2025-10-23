@@ -20,6 +20,10 @@
 #define DEBUG_PWM               1       // PWM调试
 #define DEBUG_SYSTEM            1       // 系统心跳调试
 
+// ==================== 测试开关 ====================
+#define ENABLE_AUTO_TEST        1       // 自动测试模式（上电自动运行测试序列）
+#define ENABLE_GPIO_MONITOR     1       // GPIO监控器（Core1监控PWM输出）
+
 // ==================== 舵机参数 ====================
 #define SERVO_COUNT             18          // 舵机数量
 

@@ -174,6 +174,12 @@ void pwm_enable_channel(uint8_t channel, bool enable) {
     uint slice = g_pwm_channels[channel].slice;
     uint chan = g_pwm_channels[channel].channel;
     
+    // 确保PWM Slice已使能
+    if (!pwm_is_enabled(slice)) {
+        pwm_set_enabled(slice, true);
+        PWM_DEBUG("[PWM] Slice %d was disabled, re-enabling...\n", slice);
+    }
+    
     if (enable) {
         // 使能：输出当前脉宽
         uint16_t level = g_pwm_channels[channel].pulse_us * 2;

@@ -34,6 +34,12 @@
 #include "storage/param_manager.h"
 #include "utils/error_handler.h"
 
+// GPIO监控器
+#include "monitor/gpio_monitor.h"
+
+// 自动测试
+#include "test/auto_test.h"
+
 // ==================== 事件池定义 ====================
 
 // 小事件池（用于简单事件）
@@ -193,6 +199,19 @@ int main(void) {
                   (void *)0);
     
     printf("[QP] All Active Objects started successfully!\n");
+    
+    // ========== 启动GPIO监控器 ==========
+#if ENABLE_GPIO_MONITOR
+    printf("[MONITOR] Starting GPIO monitor on Core1...\n");
+    gpio_monitor_start();
+#endif
+    
+    // ========== 启动自动测试 ==========
+#if ENABLE_AUTO_TEST
+    printf("[TEST] Starting auto test...\n");
+    auto_test_start();
+#endif
+    
     printf("[QP] System ready. Starting event loop...\n");
     printf("========================================\n\n");
     

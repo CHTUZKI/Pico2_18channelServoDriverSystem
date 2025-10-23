@@ -14,6 +14,7 @@
 #include "servo/servo_control.h"
 #include "servo/servo_manager.h"
 #include <stdio.h>
+#include <math.h>
 
 Q_DEFINE_THIS_FILE
 
