@@ -14,11 +14,11 @@
 
 // ==================== 调试开关 ====================
 #define DEBUG_ENABLE            1       // 主调试开关
-#define DEBUG_USB               1       // USB通信调试
-#define DEBUG_MOTION            1       // 运动插值调试
-#define DEBUG_SERVO             1       // 舵机角度转换调试
-#define DEBUG_PWM               1       // PWM调试
-#define DEBUG_SYSTEM            1       // 系统心跳调试
+#define DEBUG_USB               0       // USB通信调试（关闭，避免与Core1冲突）
+#define DEBUG_MOTION            0       // 运动插值调试（关闭，减少输出）
+#define DEBUG_SERVO             0       // 舵机角度转换调试（关闭，减少输出）
+#define DEBUG_PWM               0       // PWM调试（关闭，Core1已有监控器）
+#define DEBUG_SYSTEM            0       // 系统心跳调试（关闭，减少输出）
 
 // ==================== 测试开关 ====================
 #define ENABLE_AUTO_TEST        1       // 自动测试模式（上电自动运行测试序列）
