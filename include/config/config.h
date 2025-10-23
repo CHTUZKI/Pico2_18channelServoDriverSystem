@@ -85,7 +85,7 @@
 #define AO_QUEUE_SIZE_SYSTEM    5           // 系统AO队列
 
 // 时间事件周期
-#define TIME_EVENT_INTERP_MS    50          // 插值时间事件周期（增加到50ms）
+#define TIME_EVENT_INTERP_MS    20          // 插值时间事件周期（20ms = 50Hz，更平滑）
 #define TIME_EVENT_LED_MS       1000        // LED时间事件周期
 
 // ==================== Flash存储参数 ====================

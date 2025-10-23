@@ -13,6 +13,7 @@
 #include "config/config.h"
 #include "servo/servo_control.h"
 #include "servo/servo_manager.h"
+#include "test/auto_test.h"
 #include <stdio.h>
 #include <math.h>
 
@@ -107,6 +108,7 @@ static QState AO_Motion_idle(AO_Motion_t * const me, QEvt const * const e) {
                 start_positions[i] = servo_get_angle(i);
             }
             
+            #if DEBUG_MOTION
             // 调试：打印起始位置（避免浮点printf问题）
             MOTION_DEBUG("[AO-MOTION] Start positions: ");
             for (int i = 0; i < SERVO_COUNT; i++) {
@@ -122,6 +124,7 @@ static QState AO_Motion_idle(AO_Motion_t * const me, QEvt const * const e) {
                 printf("%d.%d ", angle_int / 10, angle_int % 10);
             }
             printf("\n");
+            #endif
             
             MOTION_DEBUG("[AO-MOTION] Setting up interpolator for all axes\n");
             
@@ -203,6 +206,7 @@ static QState AO_Motion_moving(AO_Motion_t * const me, QEvt const * const e) {
                 break;
             }
             
+            #if DEBUG_MOTION
             // 调试：减少输出频率（每10次输出一次）
             static uint32_t debug_count = 0;
             debug_count++;
@@ -214,6 +218,7 @@ static QState AO_Motion_moving(AO_Motion_t * const me, QEvt const * const e) {
                 }
                 printf("\n");
             }
+            #endif
             
             // 应用到舵机
             servo_set_all_angles(output_positions);
@@ -230,9 +235,10 @@ static QState AO_Motion_moving(AO_Motion_t * const me, QEvt const * const e) {
                 MOTION_DEBUG("[AO-MOTION] Motion complete! Transitioning to IDLE...\n");
                 tick_count = 0;  // 重置计数器
                 
-                // 暂时注释掉PUBLISH，看是否是问题所在
-                // static QEvt const motion_complete_evt = QEVT_INITIALIZER(MOTION_COMPLETE_SIG);
-                // QACTIVE_PUBLISH(&motion_complete_evt, AO_Motion);
+                // 通知自动测试（如果正在运行）
+                if (auto_test_is_running()) {
+                    auto_test_on_motion_complete();
+                }
                 
                 // 返回idle状态
                 status = Q_TRAN(&AO_Motion_idle);

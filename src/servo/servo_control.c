@@ -180,7 +180,8 @@ bool servo_set_all_angles(const float angles[SERVO_COUNT]) {
         g_servos[i].current_pulse_us = pulses[i];
     }
     
-    // 批量更新PWM（减少调试输出频率）
+    // 批量更新PWM（调试输出已通过宏控制）
+    #if DEBUG_SERVO
     static uint32_t servo_debug_count = 0;
     servo_debug_count++;
     if (servo_debug_count % 10 == 0) {
@@ -191,6 +192,7 @@ bool servo_set_all_angles(const float angles[SERVO_COUNT]) {
         }
         printf("\n");
     }
+    #endif
     
     return pwm_set_all_pulses(pulses);
 }
