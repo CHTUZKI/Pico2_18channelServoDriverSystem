@@ -50,6 +50,23 @@ static int64_t test_timer_callback(alarm_id_t id, void *user_data);
 static void test_next_step(void);
 
 /**
+ * @brief 使能所有舵机
+ */
+static void test_enable_all_servos(void) {
+    printf("[AUTO-TEST] Enabling all servos...\n");
+    
+    // 直接调用servo_enable函数（需要包含头文件）
+    extern void servo_enable(uint8_t id, bool enable);
+    
+    // 使能所有18个舵机
+    for (int i = 0; i < SERVO_COUNT; i++) {
+        servo_enable(i, true);
+    }
+    
+    printf("[AUTO-TEST] All servos enabled\n");
+}
+
+/**
  * @brief 发送运动命令到Motion AO
  */
 static void test_send_motion_command(float target_angle, uint16_t duration_ms) {
@@ -116,6 +133,11 @@ static void test_next_step(void) {
             
             printf("\n--- Cycle %lu/%lu ---\n", 
                    test_ctx.cycle_count, test_ctx.total_cycles);
+            
+            // 第一次循环时使能所有舵机
+            if (test_ctx.cycle_count == 1) {
+                test_enable_all_servos();
+            }
             
             // 移动到0度
             test_ctx.state = TEST_STATE_TO_0;
