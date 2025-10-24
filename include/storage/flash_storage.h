@@ -24,8 +24,12 @@ typedef struct {
     // 舵机校准参数
     servo_calibration_t calibrations[SERVO_COUNT];
     
+    // 舵机位置保存（用于上电恢复）
+    float saved_positions[SERVO_COUNT];     // 上次保存的位置（度）
+    bool positions_valid;                   // 位置数据是否有效
+    
     // 预留扩展空间
-    uint8_t reserved[128];
+    uint8_t reserved[55];                   // 128 - 18*4 - 1 = 55
 } flash_params_t;
 
 /**

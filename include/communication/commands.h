@@ -90,6 +90,13 @@ void cmd_save_flash(const protocol_frame_t *frame, command_result_t *result);
 void cmd_load_flash(const protocol_frame_t *frame, command_result_t *result);
 
 /**
+ * @brief 处理RESET_FACTORY命令
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_reset_factory(const protocol_frame_t *frame, command_result_t *result);
+
+/**
  * @brief 处理ESTOP命令
  * @param frame 协议帧
  * @param result 处理结果

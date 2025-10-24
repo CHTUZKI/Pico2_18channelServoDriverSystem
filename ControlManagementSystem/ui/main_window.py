@@ -186,6 +186,16 @@ class MainWindow(QMainWindow):
         default_params_action.triggered.connect(self.open_default_params)
         tools_menu.addAction(default_params_action)
         
+        tools_menu.addSeparator()
+        
+        save_flash_action = QAction("保存位置到Flash(&V)", self)
+        save_flash_action.triggered.connect(self.save_to_flash)
+        tools_menu.addAction(save_flash_action)
+        
+        reset_factory_action = QAction("恢复出厂设置(&F)", self)
+        reset_factory_action.triggered.connect(self.reset_factory)
+        tools_menu.addAction(reset_factory_action)
+        
         # 帮助菜单
         help_menu = menubar.addMenu("帮助(&H)")
         
@@ -1267,6 +1277,60 @@ class MainWindow(QMainWindow):
                 'default_speed_ms': self.servo_settings['default_speed_ms']
             })
             self.config_manager.save()
+    
+    def save_to_flash(self):
+        """保存当前舵机位置到Flash"""
+        if not self.is_connected:
+            QMessageBox.warning(self, "警告", "请先连接设备！")
+            return
+        
+        # 确认对话框
+        reply = QMessageBox.question(
+            self, 
+            "保存位置", 
+            "确定要保存当前所有舵机的位置到Flash吗？\n下次上电将恢复到这些位置。",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            if self.serial_comm.save_to_flash():
+                QMessageBox.information(self, "成功", "位置已保存到Flash！")
+                logger.info("位置已保存到Flash")
+            else:
+                QMessageBox.critical(self, "失败", "保存位置失败！")
+                logger.error("保存位置失败")
+    
+    def reset_factory(self):
+        """恢复出厂设置"""
+        if not self.is_connected:
+            QMessageBox.warning(self, "警告", "请先连接设备！")
+            return
+        
+        # 二次确认对话框
+        reply = QMessageBox.warning(
+            self,
+            "恢复出厂设置",
+            "警告：此操作将清除Flash中的所有参数和位置数据！\n"
+            "所有舵机将恢复到默认校准参数和90度中位。\n\n"
+            "确定要继续吗？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            if self.serial_comm.reset_factory():
+                QMessageBox.information(
+                    self, 
+                    "成功", 
+                    "恢复出厂设置成功！\n"
+                    "所有舵机已设置到90度中位。\n"
+                    "建议重启设备以确保所有参数生效。"
+                )
+                logger.info("恢复出厂设置成功")
+            else:
+                QMessageBox.critical(self, "失败", "恢复出厂设置失败！")
+                logger.error("恢复出厂设置失败")
     
     def open_default_params(self):
         """打开默认参数配置对话框"""

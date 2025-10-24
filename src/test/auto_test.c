@@ -21,8 +21,8 @@
 #include <stdio.h>
 
 // 测试配置
-#define TEST_CYCLES         20      // 测试循环次数
-#define TEST_DURATION_MS    2500    // 每次运动持续时间（毫秒）
+#define TEST_CYCLES         100      // 测试循环次数
+#define TEST_DURATION_MS    5000    // 每次运动持续时间（毫秒）
 
 // 测试状态
 typedef enum {

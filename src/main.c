@@ -85,12 +85,18 @@ static bool hardware_init(void) {
     // 5. 初始化参数管理（加载Flash参数）
     param_manager_init();
     
-    // 6. 设置所有舵机到中位
-    float center_angles[SERVO_COUNT];
-    for (int i = 0; i < SERVO_COUNT; i++) {
-        center_angles[i] = 90.0f;
+    // 6. 上电位置设置（总是尝试从Flash恢复，安全优先）
+    if (param_manager_load_positions()) {
+        LOG_INFO("[INIT] Restored positions from Flash\n");
+    } else {
+        // Flash中无有效位置，设置到中位
+        LOG_INFO("[INIT] No saved positions, setting to center\n");
+        float center_angles[SERVO_COUNT];
+        for (int i = 0; i < SERVO_COUNT; i++) {
+            center_angles[i] = 90.0f;
+        }
+        servo_set_all_angles(center_angles);
     }
-    servo_set_all_angles(center_angles);
     
     LOG_INFO("[INIT] Hardware OK!\n");
     sleep_ms(50);

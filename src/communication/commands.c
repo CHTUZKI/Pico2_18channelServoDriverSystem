@@ -66,6 +66,10 @@ bool commands_process(const protocol_frame_t *frame, command_result_t *result) {
             cmd_load_flash(frame, result);
             break;
             
+        case CMD_RESET_FACTORY:
+            cmd_reset_factory(frame, result);
+            break;
+            
         case CMD_ESTOP:
             cmd_emergency_stop(frame, result);
             break;
@@ -251,8 +255,11 @@ void cmd_disable(const protocol_frame_t *frame, command_result_t *result) {
 }
 
 void cmd_save_flash(const protocol_frame_t *frame, command_result_t *result) {
-    // 保存参数到Flash
-    if (param_manager_save()) {
+    // 保存参数和位置到Flash
+    bool save_ok = param_manager_save();           // 保存校准参数
+    bool pos_ok = param_manager_save_positions();  // 保存当前位置
+    
+    if (save_ok && pos_ok) {
         result->resp_code = RESP_OK;
     } else {
         result->resp_code = RESP_ERROR;
@@ -267,6 +274,26 @@ void cmd_load_flash(const protocol_frame_t *frame, command_result_t *result) {
     } else {
         result->resp_code = RESP_ERROR;
         error_set(ERROR_FLASH_READ);
+    }
+}
+
+void cmd_reset_factory(const protocol_frame_t *frame, command_result_t *result) {
+    // 恢复出厂设置
+    // 1. 清除Flash中的所有参数和位置数据
+    bool reset_ok = param_manager_reset();
+    
+    // 2. 设置所有舵机到90度中位
+    float center_angles[SERVO_COUNT];
+    for (int i = 0; i < SERVO_COUNT; i++) {
+        center_angles[i] = 90.0f;
+    }
+    bool servo_ok = servo_set_all_angles(center_angles);
+    
+    if (reset_ok && servo_ok) {
+        result->resp_code = RESP_OK;
+    } else {
+        result->resp_code = RESP_ERROR;
+        error_set(ERROR_FLASH_WRITE);
     }
 }
 
