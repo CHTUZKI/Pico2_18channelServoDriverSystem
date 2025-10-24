@@ -17,7 +17,7 @@
 #include "servo/servo_control.h"
 #include "servo/servo_manager.h"
 #include "utils/ring_buffer.h"
-#include "tusb.h"
+#include "utils/usb_bridge.h"  // 使用USB桥接器代替直接访问USB
 #include <stdio.h>
 #include <string.h>
 
@@ -67,7 +67,7 @@ void AO_Communication_ctor(void) {
 static QState AO_Communication_initial(AO_Communication_t * const me, void const * const par) {
     (void)par;
     #if DEBUG_USB
-    printf("[AO-COMM] Initial state\n");
+    LOG_DEBUG("[AO-COMM] Initial state\n");
     #endif
     QTimeEvt_armX(&me->usb_poll_timer, 10, 10);
     return Q_TRAN(&AO_Communication_active);
@@ -79,36 +79,38 @@ static QState AO_Communication_active(AO_Communication_t * const me, QEvt const 
     switch (e->sig) {
         case Q_ENTRY_SIG: {
             #if DEBUG_USB
-            printf("[AO-COMM] Entering ACTIVE state\n");
+            LOG_DEBUG("[AO-COMM] Entering ACTIVE state\n");
             #endif
             status = Q_HANDLED();
             break;
         }
         
         case USB_RX_DATA_SIG: {
-            tud_task();
-            me->usb_connected = tud_cdc_connected();
+            // USB操作由Core 1负责，这里只从Bridge读取
+            me->usb_connected = true;  // USB Bridge启动后即可用
             
-            // 调试：每秒打印一次USB状态
+            // 调试：每秒打印一次状态
             static uint32_t poll_count = 0;
             poll_count++;
             #if DEBUG_USB
             if (poll_count % 100 == 0) {  // 10ms * 100 = 1s
-                printf("[USB] Poll #%lu, Connected: %d\n", poll_count, me->usb_connected);
+                LOG_DEBUG("[USB] Poll #%lu, Available: %lu\n", poll_count, usb_bridge_available());
             }
             #endif
             
             if (me->usb_connected) {
                 uint32_t rx_count = 0;
-                while (tud_cdc_available()) {
-                    uint8_t byte = tud_cdc_read_char();
+                while (usb_bridge_available() > 0) {
+                    int ch = usb_bridge_getchar();
+                    if (ch < 0) break;
+                    uint8_t byte = (uint8_t)ch;
                     ring_buffer_put(&me->rx_buffer, byte);
                     rx_count++;
                 }
                 
                 #if DEBUG_USB
                 if (rx_count > 0) {
-                    printf("[USB] RX: %lu bytes\n", rx_count);
+                    LOG_DEBUG("[USB] RX: %lu bytes\n", rx_count);
                 }
                 #endif
                 
@@ -177,25 +179,24 @@ static QState AO_Communication_active(AO_Communication_t * const me, QEvt const 
                 // 发送TX缓冲区中的数据
                 if (!ring_buffer_is_empty(&me->tx_buffer)) {
                     #if DEBUG_USB
-                    printf("[USB] TX buffer not empty, attempting to send...\n");
+                    LOG_DEBUG("[USB] TX buffer not empty, attempting to send...\n");
                     #endif
                     
-                    if (tud_cdc_write_available()) {
-                        uint8_t tx_byte;
-                        size_t sent = 0;
-                        while (ring_buffer_get(&me->tx_buffer, &tx_byte) && sent < 64) {
-                            tud_cdc_write_char(tx_byte);
-                            sent++;
-                        }
-                        if (sent > 0) {
-                            tud_cdc_write_flush();
-                            #if DEBUG_USB
-                            printf("[USB] TX: sent %d bytes\n", sent);
-                            #endif
-                        }
+                    // 发送数据到USB Bridge
+                    uint8_t tx_byte;
+                    size_t sent = 0;
+                    uint8_t tx_buffer_temp[64];
+                    while (ring_buffer_get(&me->tx_buffer, &tx_byte) && sent < 64) {
+                        tx_buffer_temp[sent++] = tx_byte;
+                    }
+                    if (sent > 0) {
+                        usb_bridge_write(tx_buffer_temp, sent);
+                        #if DEBUG_USB
+                        LOG_DEBUG("[USB] TX: sent %d bytes\n", sent);
+                        #endif
                     } else {
                         #if DEBUG_USB
-                        printf("[USB] TX: write not available\n");
+                        LOG_DEBUG("[USB] TX: write not available\n");
                         #endif
                     }
                 }
@@ -217,12 +218,12 @@ static QState AO_Communication_active(AO_Communication_t * const me, QEvt const 
 
 static void handle_move_single(const protocol_frame_t *frame) {
     #if DEBUG_USB
-    printf("[CMD] MOVE_SINGLE handler called\n");
+        LOG_DEBUG("[CMD] MOVE_SINGLE handler called\n");
     #endif
     
     if (frame->len < 5) {
         #if DEBUG_USB
-        printf("[CMD] Invalid len: %d < 5\n", frame->len);
+        LOG_DEBUG("[CMD] Invalid len: %d < 5\n", frame->len);
         #endif
         send_response(frame->id, frame->cmd, RESP_INVALID_PARAM, NULL, 0);
         return;
@@ -233,14 +234,14 @@ static void handle_move_single(const protocol_frame_t *frame) {
     uint16_t duration = (frame->data[3] << 8) | frame->data[4];
     
     #if DEBUG_USB
-    printf("[CMD] Parsed: Servo=%d, Angle=%d (%.1f°), Duration=%dms\n",
+    LOG_DEBUG("[CMD] Parsed: Servo=%d, Angle=%d (%.1f°), Duration=%dms\n",
            servo_id, angle, (float)angle/100.0f, duration);
     #endif
     
     // 先检查参数再分配事件（避免内存泄漏）
     if (servo_id >= SERVO_COUNT) {
         #if DEBUG_USB
-        printf("[CMD] Invalid servo ID: %d >= %d\n", servo_id, SERVO_COUNT);
+        LOG_DEBUG("[CMD] Invalid servo ID: %d >= %d\n", servo_id, SERVO_COUNT);
         #endif
         send_response(frame->id, frame->cmd, RESP_INVALID_PARAM, NULL, 0);
         return;
@@ -254,38 +255,38 @@ static void handle_move_single(const protocol_frame_t *frame) {
     evt->duration_ms = duration;
     
     #if DEBUG_USB
-    printf("[CMD] Posting MOTION_START to AO_Motion\n");
+    LOG_DEBUG("[CMD] Posting MOTION_START to AO_Motion\n");
     #endif
     QACTIVE_POST(AO_Motion, &evt->super, AO_Communication);
     
     #if DEBUG_USB
-    printf("[CMD] Sending OK response\n");
+    LOG_DEBUG("[CMD] Sending OK response\n");
     #endif
     send_response(frame->id, frame->cmd, RESP_OK, NULL, 0);
 }
 
 static void handle_move_all(const protocol_frame_t *frame) {
     #if DEBUG_USB
-    printf("[CMD] MOVE_ALL handler called, len=%d\n", frame->len);
+    LOG_DEBUG("[CMD] MOVE_ALL handler called, len=%d\n", frame->len);
     #endif
     
     if (frame->len < 38) {
         #if DEBUG_USB
-        printf("[CMD] Invalid len: %d < 38\n", frame->len);
+        LOG_DEBUG("[CMD] Invalid len: %d < 38\n", frame->len);
         #endif
         send_response(frame->id, frame->cmd, RESP_INVALID_PARAM, NULL, 0);
         return;
     }
     
     #if DEBUG_USB
-    printf("[CMD] Allocating MotionStartEvt...\n");
+    LOG_DEBUG("[CMD] Allocating MotionStartEvt...\n");
     #endif
     
     // 参数验证通过，分配事件
     MotionStartEvt *evt = Q_NEW(MotionStartEvt, MOTION_START_SIG);
     
     #if DEBUG_USB
-    printf("[CMD] Event allocated: %p\n", (void*)evt);
+    LOG_DEBUG("[CMD] Event allocated: %p\n", (void*)evt);
     #endif
     
     evt->axis_count = SERVO_COUNT;
@@ -299,22 +300,22 @@ static void handle_move_all(const protocol_frame_t *frame) {
     evt->duration_ms = (frame->data[36] << 8) | frame->data[37];
     
     #if DEBUG_USB
-    printf("[CMD] Parsed: %d axes, duration=%d ms\n", evt->axis_count, evt->duration_ms);
-    printf("[CMD] Target angles: %.1f %.1f %.1f ...\n", 
+    LOG_DEBUG("[CMD] Parsed: %d axes, duration=%d ms\n", evt->axis_count, evt->duration_ms);
+    LOG_DEBUG("[CMD] Target angles: %.1f %.1f %.1f ...\n", 
            evt->target_positions[0], evt->target_positions[1], evt->target_positions[2]);
-    printf("[CMD] Posting to AO_Motion...\n");
+    LOG_DEBUG("[CMD] Posting to AO_Motion...\n");
     #endif
     
     QACTIVE_POST(AO_Motion, &evt->super, AO_Communication);
     
     #if DEBUG_USB
-    printf("[CMD] Sending OK response...\n");
+    LOG_DEBUG("[CMD] Sending OK response...\n");
     #endif
     
     send_response(frame->id, frame->cmd, RESP_OK, NULL, 0);
     
     #if DEBUG_USB
-    printf("[CMD] MOVE_ALL handler complete\n");
+    LOG_DEBUG("[CMD] MOVE_ALL handler complete\n");
     #endif
 }
 
@@ -398,15 +399,15 @@ static void send_response(uint8_t id, uint8_t cmd, uint8_t resp_code,
     resp_buffer[idx++] = crc & 0xFF;
     
     AO_Communication_t *me = &AO_Communication_inst;
-    size_t written = ring_buffer_write(&me->tx_buffer, resp_buffer, idx);
+    ring_buffer_write(&me->tx_buffer, resp_buffer, idx);
     
     #if DEBUG_USB
-    printf("[RESP] Built response: len=%d, written=%d, resp_code=%d\n", 
-           idx, written, resp_code);
-    printf("[RESP] Frame: ");
+    LOG_DEBUG("[RESP] Built response: len=%d, resp_code=%d\n", 
+           idx, resp_code);
+    LOG_DEBUG("[RESP] Frame: ");
     for (uint16_t i = 0; i < idx && i < 32; i++) {
-        printf("%02X ", resp_buffer[i]);
+        LOG_DEBUG("%02X ", resp_buffer[i]);
     }
-    printf("\n");
+    LOG_DEBUG("\n");
     #endif
 }

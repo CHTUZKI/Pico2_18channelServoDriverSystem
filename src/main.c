@@ -33,6 +33,7 @@
 #include "servo/servo_manager.h"
 #include "storage/param_manager.h"
 #include "utils/error_handler.h"
+#include "utils/usb_bridge.h"  // USB桥接器（Core1独占串口）
 
 // GPIO监控器
 #include "monitor/gpio_monitor.h"
@@ -57,48 +58,42 @@ static QF_MPOOL_EL(MotionStartEvt) large_pool_sto[5];
  * @brief 硬件和底层模块初始化
  */
 static bool hardware_init(void) {
-    printf("\n[INIT] Hardware initialization...\n");
+    LOG_INFO("[INIT] Starting hardware...\n");
+    sleep_ms(50);
     
     // 1. 初始化错误处理
-    printf("[INIT] Error handler...\n");
     error_handler_init();
     
     // 2. 初始化PWM系统
-    printf("[INIT] PWM system...\n");
     if (!pwm_init_all()) {
-        printf("[ERROR] PWM init failed!\n");
+        LOG_ERROR("[ERROR] PWM failed!\n");
         return false;
     }
     
     // 3. 初始化舵机控制
-    printf("[INIT] Servo control...\n");
     if (!servo_control_init()) {
-        printf("[ERROR] Servo init failed!\n");
+        LOG_ERROR("[ERROR] Servo failed!\n");
         return false;
     }
     
     // 4. 初始化舵机管理器（支持180度+360度）
-    printf("[INIT] Servo manager...\n");
     if (!servo_manager_init()) {
-        printf("[ERROR] Servo manager init failed!\n");
+        LOG_ERROR("[ERROR] Manager failed!\n");
         return false;
     }
     
     // 5. 初始化参数管理（加载Flash参数）
-    printf("[INIT] Param manager...\n");
-    if (!param_manager_init()) {
-        printf("[WARNING] Param load failed, using defaults.\n");
-    }
+    param_manager_init();
     
     // 6. 设置所有舵机到中位
-    printf("[INIT] Setting servos to center...\n");
     float center_angles[SERVO_COUNT];
     for (int i = 0; i < SERVO_COUNT; i++) {
         center_angles[i] = 90.0f;
     }
     servo_set_all_angles(center_angles);
     
-    printf("[INIT] Hardware init complete!\n\n");
+    LOG_INFO("[INIT] Hardware OK!\n");
+    sleep_ms(50);
     return true;
 }
 
@@ -111,9 +106,10 @@ int main(void) {
     gpio_set_dir(PIN_LED_BUILTIN, GPIO_OUT);
     gpio_put(PIN_LED_BUILTIN, 1);  // 点亮
     
-    // 初始化USB CDC
+    // ========== 初始化USB（必须在Core 0早期完成）==========
+    // USB枚举必须在启动后2秒内完成，否则Windows会放弃
     stdio_init_all();
-    sleep_ms(2000);  // 等待USB枚举
+    sleep_ms(2000);  // 等待USB枚举完成
     
     // LED闪烁2次表示USB就绪
     for (int i = 0; i < 2; i++) {
@@ -123,18 +119,42 @@ int main(void) {
         sleep_ms(100);
     }
     
-    // ========== 打印启动信息 ==========
-    printf("\n\n");
-    printf("========================================\n");
-    printf("  18-Channel Servo Controller\n");
-    printf("  Version: %d.%d.%d-QPC\n", SYSTEM_VERSION_MAJOR, SYSTEM_VERSION_MINOR, SYSTEM_VERSION_PATCH);
-    printf("  Platform: RP2350 @ 150MHz\n");
-    printf("  Framework: QP/C %s (QV Kernel)\n", QP_VERSION_STR);
-    printf("========================================\n\n");
+    // ========== 初始化USB桥接器（Core1接管USB操作）==========
+    // ⚠️ 不要在这里printf！Core 1还没启动
+    // LED闪烁3次表示即将启动Core 1
+    for (int i = 0; i < 3; i++) {
+        gpio_put(PIN_LED_BUILTIN, 0);
+        sleep_ms(150);
+        gpio_put(PIN_LED_BUILTIN, 1);
+        sleep_ms(150);
+    }
+    
+    usb_bridge_init();
+    usb_bridge_start_core1();  // 启动Core1
+    sleep_ms(1500);  // 等待Core 1完全启动
+    
+    // ========== 从这里开始，所有日志通过Core1打印 ==========
+    // 注意：每次LOG_INFO后稍微延迟，给Core 1时间处理
+    
+    LOG_INFO("\n========== System Starting ==========\n");
+    sleep_ms(50);
+    
+    LOG_INFO("18-Channel Servo Controller v%d.%d.%d\n", 
+             SYSTEM_VERSION_MAJOR, SYSTEM_VERSION_MINOR, SYSTEM_VERSION_PATCH);
+    sleep_ms(50);
+    
+    LOG_INFO("Platform: RP2350 @ 150MHz\n");
+    sleep_ms(50);
+    
+    LOG_INFO("Framework: QP/C (QV Kernel)\n");
+    sleep_ms(50);
+    
+    LOG_INFO("=====================================\n\n");
+    sleep_ms(50);
     
     // ========== 硬件初始化 ==========
     if (!hardware_init()) {
-        printf("[CRITICAL] Hardware initialization failed!\n");
+        LOG_CRITICAL("[CRITICAL] Hardware initialization failed!\n");
         
         // LED快速闪烁表示错误
         while (1) {
@@ -146,27 +166,27 @@ int main(void) {
     }
     
     // ========== QP/C初始化 ==========
-    printf("[QP] Initializing QP/C framework...\n");
+    LOG_INFO("[QP] Initializing framework...\n");
+    sleep_ms(50);
     QF_init();  // 初始化QP框架
     
     // 初始化事件池
-    printf("[QP] Initializing event pools...\n");
+    LOG_INFO("[QP] Event pools...\n");
+    sleep_ms(50);
     QF_poolInit(small_pool_sto, sizeof(small_pool_sto), sizeof(QEvt));
     QF_poolInit(medium_pool_sto, sizeof(medium_pool_sto), sizeof(MoveSingleEvt));
     QF_poolInit(large_pool_sto, sizeof(large_pool_sto), sizeof(MotionStartEvt));
     
-    // 打印事件池信息用于调试
-    printf("[QP] Event pool sizes: QEvt=%u, MoveSingleEvt=%u, MotionStartEvt=%u\n",
-           sizeof(QEvt), sizeof(MoveSingleEvt), sizeof(MotionStartEvt));
-    
     // ========== 创建主动对象 ==========
-    printf("[QP] Constructing Active Objects...\n");
+    LOG_INFO("[QP] Creating Active Objects...\n");
+    sleep_ms(50);
     AO_Communication_ctor();
     AO_Motion_ctor();
     AO_System_ctor();
     
     // ========== 启动主动对象 ==========
-    printf("[QP] Starting Active Objects...\n");
+    LOG_INFO("[QP] Starting Active Objects...\n");
+    sleep_ms(50);
     
     // Communication AO事件队列
     static QEvt const *comm_queue_sto[AO_QUEUE_SIZE_COMM];
@@ -198,37 +218,25 @@ int main(void) {
                   0U,
                   (void *)0);
     
-    printf("[QP] All Active Objects started successfully!\n");
-    
-    // ========== 启动GPIO监控器 ==========
-#if ENABLE_GPIO_MONITOR
-    printf("[MONITOR] Starting GPIO monitor on Core1...\n");
-    gpio_monitor_start();
-#endif
+    LOG_INFO("[QP] All AOs started!\n");
+    sleep_ms(50);
     
     // ========== 启动自动测试 ==========
 #if ENABLE_AUTO_TEST
-    printf("[TEST] Starting auto test...\n");
+    LOG_INFO("[TEST] Auto test enabled\n");
+    sleep_ms(50);
     auto_test_start();
 #endif
     
-    printf("[QP] System ready. Starting event loop...\n");
-    printf("========================================\n\n");
+    LOG_INFO("[QP] System ready!\n");
+    sleep_ms(50);
     
-    // LED闪烁3次表示即将进入QP事件循环
-    for (int i = 0; i < 3; i++) {
-        gpio_put(PIN_LED_BUILTIN, 0);
-        sleep_ms(200);
-        gpio_put(PIN_LED_BUILTIN, 1);
-        sleep_ms(200);
-    }
-    
+    LOG_INFO("Entering event loop...\n\n");
     sleep_ms(100);
     
-    // ========== 运行QP事件循环 ==========
-    printf("[QP] >>> Entering QF_run() event loop <<<\n");
-    printf("If LED starts blinking slowly, QP is running!\n\n");
-    sleep_ms(100);
+    // 等待所有日志打印完成
+    usb_bridge_flush(500);
+    sleep_ms(200);
     
     return QF_run();  // 运行QP事件循环（永不返回）
 }

@@ -74,13 +74,18 @@ bool flash_save_params(const flash_params_t *params) {
     write_params.servo_count = SERVO_COUNT;
     write_params.checksum = flash_calculate_checksum(&write_params);
     
+    // ⚠️ 关键：Flash写入会禁用中断（硬件限制）
+    // 影响：Core 0和Core 1的中断都会暂停约10ms
+    // 后果：USB可能丢失少量数据，QP/C时间事件会延迟
+    // 这是RP2350硬件限制，无法避免
+    
     // 禁用中断（Flash操作期间）
     uint32_t ints = save_and_disable_interrupts();
     
-    // 擦除扇区
+    // 擦除扇区（约5-8ms）
     flash_range_erase(FLASH_TARGET_OFFSET, FLASH_SECTOR_SIZE);
     
-    // 写入数据
+    // 写入数据（约1-2ms）
     flash_range_program(FLASH_TARGET_OFFSET, (const uint8_t*)&write_params, sizeof(flash_params_t));
     
     // 恢复中断
