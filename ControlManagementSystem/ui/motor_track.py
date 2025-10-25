@@ -86,7 +86,21 @@ class ComponentWidget(QWidget):
         
         if self.component.type in [ComponentType.FORWARD_ROTATION, ComponentType.REVERSE_ROTATION]:
             angle = self.component.parameters.get('target_angle', 0)
-            tooltip += f"目标角度: {angle:.1f}°"
+            tooltip += f"目标角度: {angle:.1f}°\n"
+            
+            # 显示运动模式
+            motion_mode = self.component.parameters.get('motion_mode', 'time')
+            if motion_mode == 'trapezoid':
+                velocity = self.component.parameters.get('velocity', 30.0)
+                acceleration = self.component.parameters.get('acceleration', 60.0)
+                tooltip += f"模式: 梯形速度\n"
+                tooltip += f"速度: {velocity:.1f}°/s\n"
+                tooltip += f"加速度: {acceleration:.1f}°/s²"
+            else:
+                speed_ms = self.component.parameters.get('speed_ms', 1000)
+                tooltip += f"模式: 基于时间\n"
+                tooltip += f"运动时间: {speed_ms}ms"
+                
         elif self.component.type == ComponentType.DELAY:
             delay = self.component.parameters.get('delay_time', 0)
             tooltip += f"延时时长: {delay:.2f}s"

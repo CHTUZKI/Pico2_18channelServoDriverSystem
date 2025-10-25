@@ -128,8 +128,8 @@ class ServoCommander:
         if not events:
             return None
         
-        # 收集所有需要运动的舵机
-        servo_angles = {}
+        # 收集所有需要运动的舵机及其参数
+        servo_data = {}  # {servo_id: {'angle': ..., 'component': ...}}
         speed_ms = 1000  # 默认速度
         
         for event in events:
@@ -141,7 +141,10 @@ class ServoCommander:
                 target_angle = component.parameters.get('target_angle', 90.0)
                 speed_ms = component.parameters.get('speed_ms', 1000)
                 
-                servo_angles[servo_id] = target_angle
+                servo_data[servo_id] = {
+                    'angle': target_angle,
+                    'component': component
+                }
                 logger.debug(f"    舵机{servo_id}正转: {target_angle}°")
                 
             elif component.type == ComponentType.REVERSE_ROTATION:
@@ -153,29 +156,35 @@ class ServoCommander:
                 if target_angle < 0:
                     target_angle = abs(target_angle)
                 
-                servo_angles[servo_id] = target_angle
+                servo_data[servo_id] = {
+                    'angle': target_angle,
+                    'component': component
+                }
                 logger.debug(f"    舵机{servo_id}反转: {target_angle}°")
                 
             elif component.type == ComponentType.HOME:
                 # 归零：回到90度中位
                 speed_ms = component.parameters.get('speed_ms', 1000)
-                servo_angles[servo_id] = 90.0
+                servo_data[servo_id] = {
+                    'angle': 90.0,
+                    'component': component
+                }
                 logger.debug(f"    舵机{servo_id}归零: 90°")
         
-        if not servo_angles:
+        if not servo_data:
             return None
         
         # 更新当前位置
-        for servo_id, angle in servo_angles.items():
+        for servo_id, data in servo_data.items():
             if 0 <= servo_id < self.servo_count:
-                self.current_positions[servo_id] = angle
+                self.current_positions[servo_id] = data['angle']
             else:
                 logger.error(f"舵机ID超出范围: {servo_id}, 有效范围: 0-{self.servo_count-1}")
         
         return {
             'time': time_point,
             'type': 'motion',
-            'servos': servo_angles,
+            'servo_data': servo_data,  # 改为包含component引用的字典
             'speed_ms': speed_ms
         }
     
@@ -233,28 +242,76 @@ class ServoCommander:
                     
                     if cmd['type'] == 'motion':
                         # 运动命令
-                        servos = cmd['servos']
+                        servo_data = cmd['servo_data']
                         speed_ms = cmd['speed_ms']
                         
-                        # 准备所有舵机的角度（未指定的保持当前位置）
-                        all_angles = self.current_positions.copy()
-                        for servo_id, angle in servos.items():
-                            if 0 <= servo_id < self.servo_count:
-                                all_angles[servo_id] = angle
+                        # 按运动模式分组
+                        time_based_servos = {}    # 基于时间的舵机
+                        trapezoid_servos = []     # 梯形速度的舵机（需要逐个发送）
+                        max_wait_time = 0.0
+                        
+                        for servo_id, data in servo_data.items():
+                            angle = data['angle']
+                            component = data['component']
+                            motion_mode = component.parameters.get('motion_mode', 'time')
+                            
+                            if motion_mode == 'trapezoid':
+                                # 梯形速度模式
+                                velocity = component.parameters.get('velocity', 30.0)
+                                acceleration = component.parameters.get('acceleration', 60.0)
+                                deceleration = component.parameters.get('deceleration', 0.0)
+                                
+                                trapezoid_servos.append({
+                                    'servo_id': servo_id,
+                                    'angle': angle,
+                                    'velocity': velocity,
+                                    'acceleration': acceleration,
+                                    'deceleration': deceleration
+                                })
+                                
+                                # 估算梯形速度的运动时间
+                                distance = abs(angle - self.current_positions[servo_id])
+                                # 简化估算：时间 ≈ 距离/平均速度 + 加减速时间
+                                estimated_time = distance / (velocity * 0.7) + (velocity / acceleration)
+                                max_wait_time = max(max_wait_time, estimated_time)
+                                
+                                logger.info(f"    舵机{servo_id}[梯形]: {angle:.1f}°, v={velocity:.1f}°/s, a={acceleration:.1f}°/s²")
                             else:
-                                logger.error(f"舵机ID超出范围: {servo_id}, 有效范围: 0-{self.servo_count-1}")
+                                # 基于时间模式
+                                time_based_servos[servo_id] = angle
+                                max_wait_time = max(max_wait_time, speed_ms / 1000.0)
+                                logger.info(f"    舵机{servo_id}[时间]: {angle:.1f}°, 时间={speed_ms}ms")
                         
-                        # 发送命令
-                        logger.info(f"  运动命令: 时间{speed_ms}ms，发送{len(all_angles)}个角度")
-                        for servo_id, angle in servos.items():
-                            logger.info(f"    舵机{servo_id}: {angle:.1f}°")
+                        # 发送基于时间的批量命令
+                        if time_based_servos:
+                            all_angles = self.current_positions.copy()
+                            for servo_id, angle in time_based_servos.items():
+                                all_angles[servo_id] = angle
+                            
+                            logger.info(f"  发送基于时间批量命令: {len(time_based_servos)}个舵机, 时间{speed_ms}ms")
+                            if not serial_comm.move_all_servos(all_angles, speed_ms):
+                                logger.error("发送运动命令失败")
+                                return False
                         
-                        if not serial_comm.move_all_servos(all_angles, speed_ms):
-                            logger.error("发送运动命令失败")
-                            return False
+                        # 发送梯形速度命令（逐个）
+                        for servo_info in trapezoid_servos:
+                            if not serial_comm.move_servo_trapezoid(
+                                servo_info['servo_id'],
+                                servo_info['angle'],
+                                servo_info['velocity'],
+                                servo_info['acceleration'],
+                                servo_info['deceleration']
+                            ):
+                                logger.error(f"发送梯形速度命令失败: 舵机{servo_info['servo_id']}")
+                                return False
                         
-                        # 等待运动完成（加上一点余量）
-                        wait_time = speed_ms / 1000.0 + 0.1
+                        # 更新当前位置
+                        for servo_id, data in servo_data.items():
+                            if 0 <= servo_id < self.servo_count:
+                                self.current_positions[servo_id] = data['angle']
+                        
+                        # 等待运动完成（取最长时间 + 余量）
+                        wait_time = max_wait_time + 0.2
                         logger.debug(f"  等待运动完成: {wait_time:.2f}秒")
                         time.sleep(wait_time)
                         
@@ -302,10 +359,20 @@ class ServoCommander:
             
             if cmd['type'] == 'motion':
                 lines.append(f"; 类型: 运动命令")
-                lines.append(f"; 速度: {cmd['speed_ms']}ms")
-                for servo_id, angle in cmd['servos'].items():
-                    lines.append(f";   舵机{servo_id}: {angle:.1f}°")
-                lines.append(f"CMD: MOVE_ALL")
+                servo_data = cmd.get('servo_data', {})
+                for servo_id, data in servo_data.items():
+                    angle = data['angle']
+                    component = data['component']
+                    motion_mode = component.parameters.get('motion_mode', 'time')
+                    
+                    if motion_mode == 'trapezoid':
+                        velocity = component.parameters.get('velocity', 30.0)
+                        acceleration = component.parameters.get('acceleration', 60.0)
+                        lines.append(f";   舵机{servo_id}: {angle:.1f}° [梯形速度: v={velocity:.1f}°/s, a={acceleration:.1f}°/s²]")
+                    else:
+                        lines.append(f";   舵机{servo_id}: {angle:.1f}° [基于时间: {cmd['speed_ms']}ms]")
+                
+                lines.append(f"CMD: MOVE_MIXED")
                 
             elif cmd['type'] == 'delay':
                 lines.append(f"; 类型: 延时")

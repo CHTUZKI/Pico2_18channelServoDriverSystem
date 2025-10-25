@@ -66,7 +66,13 @@ class ForwardRotationComponent(Component):
         super().__init__(ComponentType.FORWARD_ROTATION, motor_id)
         self.parameters = {
             'target_angle': target_angle,  # 目标角度（度，0-180）
-            'speed_ms': speed_ms  # 运动时间（毫秒）
+            'speed_ms': speed_ms,  # 运动时间（毫秒）
+            
+            # 运动模式和梯形速度参数
+            'motion_mode': 'time',     # 运动模式：'time'(基于时间) 或 'trapezoid'(梯形速度)
+            'velocity': 30.0,          # 最大速度（度/秒）
+            'acceleration': 60.0,      # 加速度（度/秒²）
+            'deceleration': 0.0        # 减速度（度/秒²，0表示使用加速度值）
         }
 
 class ReverseRotationComponent(Component):
@@ -76,7 +82,13 @@ class ReverseRotationComponent(Component):
         super().__init__(ComponentType.REVERSE_ROTATION, motor_id)
         self.parameters = {
             'target_angle': target_angle,  # 目标角度（度，0-180）
-            'speed_ms': speed_ms  # 运动时间（毫秒）
+            'speed_ms': speed_ms,  # 运动时间（毫秒）
+            
+            # 运动模式和梯形速度参数
+            'motion_mode': 'time',     # 运动模式：'time'(基于时间) 或 'trapezoid'(梯形速度)
+            'velocity': 30.0,          # 最大速度（度/秒）
+            'acceleration': 60.0,      # 加速度（度/秒²）
+            'deceleration': 0.0        # 减速度（度/秒²，0表示使用加速度值）
         }
 
 class DelayComponent(Component):

@@ -162,15 +162,72 @@ class ComponentEditDialog(QDialog):
         self.angle_spin.setSuffix("°")
         form_layout.addRow("目标角度:", self.angle_spin)
         
-        # 运动时间
+        # 运动模式选择
+        self.motion_mode_combo = QComboBox()
+        self.motion_mode_combo.addItems(["基于时间", "梯形速度"])
+        mode = self.component.parameters.get('motion_mode', 'time')
+        self.motion_mode_combo.setCurrentIndex(0 if mode == 'time' else 1)
+        self.motion_mode_combo.currentIndexChanged.connect(self._on_motion_mode_changed)
+        form_layout.addRow("运动模式:", self.motion_mode_combo)
+        
+        # === 基于时间参数 ===
+        self.time_label = QLabel("--- 基于时间参数 ---")
+        self.time_label.setStyleSheet("font-weight: bold; color: #2196F3; margin-top: 10px;")
+        form_layout.addRow(self.time_label)
+        
         self.speed_ms_spin = QSpinBox()
         self.speed_ms_spin.setRange(100, 10000)
         self.speed_ms_spin.setValue(self.component.parameters.get('speed_ms', 1000))
         self.speed_ms_spin.setSuffix(" ms")
         form_layout.addRow("运动时间:", self.speed_ms_spin)
         
+        # === 梯形速度参数 ===
+        self.trapezoid_label = QLabel("--- 梯形速度参数 ---")
+        self.trapezoid_label.setStyleSheet("font-weight: bold; color: #4CAF50; margin-top: 10px;")
+        form_layout.addRow(self.trapezoid_label)
+        
+        self.velocity_spin = QDoubleSpinBox()
+        self.velocity_spin.setRange(1.0, 180.0)
+        self.velocity_spin.setValue(self.component.parameters.get('velocity', 30.0))
+        self.velocity_spin.setDecimals(1)
+        self.velocity_spin.setSuffix(" °/s")
+        form_layout.addRow("速度:", self.velocity_spin)
+        
+        self.acceleration_spin = QDoubleSpinBox()
+        self.acceleration_spin.setRange(1.0, 500.0)
+        self.acceleration_spin.setValue(self.component.parameters.get('acceleration', 60.0))
+        self.acceleration_spin.setDecimals(1)
+        self.acceleration_spin.setSuffix(" °/s²")
+        form_layout.addRow("加速度:", self.acceleration_spin)
+        
+        self.deceleration_spin = QDoubleSpinBox()
+        self.deceleration_spin.setRange(0.0, 500.0)
+        self.deceleration_spin.setValue(self.component.parameters.get('deceleration', 0.0))
+        self.deceleration_spin.setDecimals(1)
+        self.deceleration_spin.setSuffix(" °/s²")
+        self.deceleration_label = QLabel("减速度(0=使用加速度):")
+        form_layout.addRow(self.deceleration_label, self.deceleration_spin)
+        
         group.setLayout(form_layout)
         layout.addWidget(group)
+        
+        # 根据当前模式显示/隐藏控件
+        self._on_motion_mode_changed()
+    
+    def _on_motion_mode_changed(self):
+        """运动模式切换事件"""
+        is_time_mode = (self.motion_mode_combo.currentIndex() == 0)
+        
+        # 显示/隐藏基于时间的控件
+        self.time_label.setVisible(is_time_mode)
+        self.speed_ms_spin.setVisible(is_time_mode)
+        
+        # 显示/隐藏梯形速度的控件
+        self.trapezoid_label.setVisible(not is_time_mode)
+        self.velocity_spin.setVisible(not is_time_mode)
+        self.acceleration_spin.setVisible(not is_time_mode)
+        self.deceleration_spin.setVisible(not is_time_mode)
+        self.deceleration_label.setVisible(not is_time_mode)
     
     def _create_home_controls(self, layout):
         """创建归零控件"""
@@ -217,6 +274,14 @@ class ComponentEditDialog(QDialog):
         if self.component.type in [ComponentType.FORWARD_ROTATION, ComponentType.REVERSE_ROTATION]:
             self.component.parameters['target_angle'] = self.angle_spin.value()
             self.component.parameters['speed_ms'] = self.speed_ms_spin.value()
+            
+            # 保存运动模式和梯形速度参数
+            motion_mode = 'time' if self.motion_mode_combo.currentIndex() == 0 else 'trapezoid'
+            self.component.parameters['motion_mode'] = motion_mode
+            self.component.parameters['velocity'] = self.velocity_spin.value()
+            self.component.parameters['acceleration'] = self.acceleration_spin.value()
+            self.component.parameters['deceleration'] = self.deceleration_spin.value()
+            
         elif self.component.type == ComponentType.HOME:
             self.component.parameters['home_angle'] = self.home_angle_spin.value()
             self.component.parameters['speed_ms'] = self.speed_ms_spin.value()
