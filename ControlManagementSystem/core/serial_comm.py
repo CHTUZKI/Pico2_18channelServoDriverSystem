@@ -23,6 +23,12 @@ class SerialComm(QObject):
     # 命令定义
     CMD_MOVE_SINGLE = 0x01
     CMD_MOVE_ALL = 0x03
+    CMD_MOVE_TRAPEZOID = 0x04        # 梯形速度运动
+    CMD_TRAJ_ADD_POINT = 0x06        # 添加轨迹点
+    CMD_TRAJ_START = 0x07            # 开始执行轨迹
+    CMD_TRAJ_STOP = 0x08             # 停止轨迹
+    CMD_TRAJ_CLEAR = 0x09            # 清空轨迹
+    CMD_TRAJ_GET_INFO = 0x0A         # 查询轨迹信息
     CMD_GET_SINGLE = 0x10
     CMD_GET_ALL = 0x11
     CMD_ENABLE = 0x20
@@ -483,3 +489,150 @@ class SerialComm(QObject):
             
         except Exception as e:
             logger.error(f"处理帧失败: {e}")
+    
+    # ==================== 梯形速度和轨迹规划接口 ====================
+    
+    def move_servo_trapezoid(self, servo_id: int, angle: float, 
+                            velocity: float = 30.0, 
+                            acceleration: float = 60.0,
+                            deceleration: float = 0.0) -> bool:
+        """使用梯形速度曲线移动舵机
+        
+        Args:
+            servo_id: 舵机ID (0-17)
+            angle: 目标角度 (0-180度)
+            velocity: 最大速度 (度/秒), 默认30
+            acceleration: 加速度 (度/秒²), 默认60
+            deceleration: 减速度 (度/秒²), 0表示使用加速度值
+        
+        Returns:
+            bool: 是否发送成功
+        """
+        # 限制角度范围
+        angle = max(0.0, min(180.0, angle))
+        velocity = max(1.0, min(180.0, velocity))
+        acceleration = max(1.0, min(500.0, acceleration))
+        
+        # 转换参数（×100 / ×10）
+        angle_raw = int(angle * 100)
+        velocity_raw = int(velocity * 10)
+        accel_raw = int(acceleration * 10)
+        decel_raw = int(deceleration * 10) if deceleration > 0 else 0
+        
+        # 数据格式（9字节）：[ID][角度H][角度L][速度H][速度L][加速H][加速L][减速H][减速L]
+        data = bytes([
+            servo_id,
+            (angle_raw >> 8) & 0xFF,
+            angle_raw & 0xFF,
+            (velocity_raw >> 8) & 0xFF,
+            velocity_raw & 0xFF,
+            (accel_raw >> 8) & 0xFF,
+            accel_raw & 0xFF,
+            (decel_raw >> 8) & 0xFF,
+            decel_raw & 0xFF
+        ])
+        
+        logger.info(f"梯形速度移动舵机{servo_id}: 角度={angle:.1f}°, 速度={velocity:.1f}°/s, 加速度={acceleration:.1f}°/s²")
+        return self.send_servo_command(self.CMD_MOVE_TRAPEZOID, data)
+    
+    def trajectory_add_point(self, servo_id: int, position: float,
+                            velocity: float = 30.0,
+                            acceleration: float = 60.0,
+                            deceleration: float = 0.0,
+                            dwell_time_ms: int = 0) -> bool:
+        """添加轨迹点
+        
+        Args:
+            servo_id: 舵机ID (0-17)
+            position: 目标位置 (0-180度)
+            velocity: 最大速度 (度/秒)
+            acceleration: 加速度 (度/秒²)
+            deceleration: 减速度 (度/秒²)
+            dwell_time_ms: 停留时间 (毫秒)
+        
+        Returns:
+            bool: 是否发送成功
+        """
+        # 限制参数范围
+        position = max(0.0, min(180.0, position))
+        velocity = max(1.0, min(180.0, velocity))
+        acceleration = max(1.0, min(500.0, acceleration))
+        dwell_time_ms = max(0, min(60000, dwell_time_ms))
+        
+        # 转换参数
+        pos_raw = int(position * 100)
+        velocity_raw = int(velocity * 10)
+        accel_raw = int(acceleration * 10)
+        decel_raw = int(deceleration * 10) if deceleration > 0 else 0
+        
+        # 数据格式（11字节）
+        data = bytes([
+            servo_id,
+            (pos_raw >> 8) & 0xFF,
+            pos_raw & 0xFF,
+            (velocity_raw >> 8) & 0xFF,
+            velocity_raw & 0xFF,
+            (accel_raw >> 8) & 0xFF,
+            accel_raw & 0xFF,
+            (decel_raw >> 8) & 0xFF,
+            decel_raw & 0xFF,
+            (dwell_time_ms >> 8) & 0xFF,
+            dwell_time_ms & 0xFF
+        ])
+        
+        logger.info(f"添加轨迹点: 舵机{servo_id}, 位置={position:.1f}°, 停留={dwell_time_ms}ms")
+        return self.send_servo_command(self.CMD_TRAJ_ADD_POINT, data)
+    
+    def trajectory_start(self, servo_id: int, loop: bool = False) -> bool:
+        """开始执行轨迹
+        
+        Args:
+            servo_id: 舵机ID (0-17)
+            loop: 是否循环执行
+        
+        Returns:
+            bool: 是否发送成功
+        """
+        # 数据格式（2字节）：[ID][loop]
+        data = bytes([servo_id, 1 if loop else 0])
+        logger.info(f"开始轨迹: 舵机{servo_id}, 循环={'是' if loop else '否'}")
+        return self.send_servo_command(self.CMD_TRAJ_START, data)
+    
+    def trajectory_stop(self, servo_id: int) -> bool:
+        """停止轨迹执行
+        
+        Args:
+            servo_id: 舵机ID (0-17)
+        
+        Returns:
+            bool: 是否发送成功
+        """
+        data = bytes([servo_id])
+        logger.info(f"停止轨迹: 舵机{servo_id}")
+        return self.send_servo_command(self.CMD_TRAJ_STOP, data)
+    
+    def trajectory_clear(self, servo_id: int) -> bool:
+        """清空轨迹
+        
+        Args:
+            servo_id: 舵机ID (0-17)
+        
+        Returns:
+            bool: 是否发送成功
+        """
+        data = bytes([servo_id])
+        logger.info(f"清空轨迹: 舵机{servo_id}")
+        return self.send_servo_command(self.CMD_TRAJ_CLEAR, data)
+    
+    def trajectory_get_info(self, servo_id: int) -> bool:
+        """查询轨迹信息
+        
+        Args:
+            servo_id: 舵机ID (0-17)
+        
+        Returns:
+            bool: 是否发送成功
+        """
+        data = bytes([servo_id])
+        logger.info(f"查询轨迹信息: 舵机{servo_id}")
+        return self.send_servo_command(self.CMD_TRAJ_GET_INFO, data)
