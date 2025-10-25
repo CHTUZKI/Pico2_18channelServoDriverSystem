@@ -44,6 +44,10 @@ bool commands_process(const protocol_frame_t *frame, command_result_t *result) {
     
     g_cmd_count++;
     
+    #if DEBUG_COMMAND
+    CMD_DEBUG("[CMD] Processing command=0x%02X, len=%d\n", frame->cmd, frame->len);
+    #endif
+    
     // 根据命令字分发
     switch (frame->cmd) {
         case CMD_MOVE_SINGLE:
@@ -111,6 +115,9 @@ bool commands_process(const protocol_frame_t *frame, command_result_t *result) {
             break;
             
         default:
+            #if DEBUG_COMMAND
+            CMD_DEBUG("[CMD] ERROR: Invalid command=0x%02X (not recognized)\n", frame->cmd);
+            #endif
             result->resp_code = RESP_INVALID_CMD;
             error_set(ERROR_CMD_INVALID);
             g_cmd_error_count++;

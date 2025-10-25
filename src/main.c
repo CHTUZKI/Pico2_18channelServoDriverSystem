@@ -149,6 +149,9 @@ int main(void) {
              SYSTEM_VERSION_MAJOR, SYSTEM_VERSION_MINOR, SYSTEM_VERSION_PATCH);
     sleep_ms(50);
     
+    LOG_INFO("Build: %s %s\n", __DATE__, __TIME__);
+    sleep_ms(50);
+    
     LOG_INFO("Platform: RP2350 @ 150MHz\n");
     sleep_ms(50);
     
