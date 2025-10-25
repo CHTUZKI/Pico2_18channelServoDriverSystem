@@ -633,12 +633,12 @@ class MainWindow(QMainWindow):
                     self.handleError(record)
         
         # 添加UI日志处理器
-        ui_handler = LogHandler()
-        ui_handler.log_message.connect(self.add_log_message)
+        self.ui_handler = LogHandler()
+        self.ui_handler.log_message.connect(self.add_log_message)
         
         # 获取motor_controller日志器并添加处理器
         motor_logger = logging.getLogger('motor_controller')
-        motor_logger.addHandler(ui_handler)
+        motor_logger.addHandler(self.ui_handler)
     
     def center_window(self):
         """窗口居中显示"""
@@ -763,7 +763,7 @@ class MainWindow(QMainWindow):
     def home_all_servos(self):
         """所有舵机归零（回到90度中位）"""
         if self.is_connected:
-            angles = [90.0] * 8
+            angles = [90.0] * 18  # 18个舵机
             self.serial_comm.move_all_servos(angles, 1000)
             logger.info("所有舵机归零到90度")
         else:
@@ -1430,6 +1430,15 @@ class MainWindow(QMainWindow):
             # 断开串口连接
             if self.is_connected:
                 self.serial_comm.disconnect()
+            
+            # 移除日志处理器，避免退出时的异常
+            try:
+                motor_logger = logging.getLogger('motor_controller')
+                if hasattr(self, 'ui_handler'):
+                    motor_logger.removeHandler(self.ui_handler)
+            except:
+                pass
+            
             event.accept()
         else:
             event.ignore()

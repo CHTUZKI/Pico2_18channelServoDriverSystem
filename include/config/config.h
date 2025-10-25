@@ -17,13 +17,13 @@
 #define DEBUG_USB               0       // USB通信调试（关闭）
 #define DEBUG_MOTION            0       // 运动插值调试（关闭）
 #define DEBUG_SERVO             0       // 舵机角度转换调试（关闭）
-#define DEBUG_PWM               1       // PWM调试（查看是否真的输出PWM）
+#define DEBUG_PWM               0       // PWM调试（查看是否真的输出PWM）
 #define DEBUG_SYSTEM            0       // 系统心跳调试（关闭）
 #define DEBUG_FLASH             0       // Flash存储调试（关闭）
 
 // ==================== 测试开关 ====================
 #define ENABLE_AUTO_TEST        0       // 自动测试模式（上电自动运行测试序列）
-#define ENABLE_GPIO_MONITOR     1       // GPIO监控器（Core1监控PWM输出）
+#define ENABLE_GPIO_MONITOR     0       // GPIO监控器（Core1监控PWM输出）
 
 // ==================== 舵机参数 ====================
 #define SERVO_COUNT             18          // 舵机数量

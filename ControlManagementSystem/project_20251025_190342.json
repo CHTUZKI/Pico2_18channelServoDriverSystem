@@ -1,0 +1,166 @@
+{
+  "version": "1.0.0",
+  "created_time": "2025-10-25T19:03:46.400732",
+  "modified_time": "2025-10-25T19:03:46.400732",
+  "timeline_data": {
+    "tracks": [
+      {
+        "motor_id": 0,
+        "name": "舵机0",
+        "loop_mode": "单次",
+        "components": [
+          {
+            "id": "c5cc1341-5c98-43ff-a8ec-0dee7ed6c5c6",
+            "type": "正转",
+            "motor_id": 0,
+            "start_time": 0.0,
+            "duration": 1.0,
+            "parameters": {
+              "target_angle": 180.0,
+              "speed_ms": 3000
+            }
+          },
+          {
+            "id": "36cc64ed-b591-4f14-9e7b-112dfb694a43",
+            "type": "正转",
+            "motor_id": 0,
+            "start_time": 1,
+            "duration": 1.0,
+            "parameters": {
+              "target_angle": 0.0,
+              "speed_ms": 3000
+            }
+          }
+        ]
+      },
+      {
+        "motor_id": 1,
+        "name": "舵机1",
+        "loop_mode": "单次",
+        "components": [
+          {
+            "id": "f55d9843-dc4d-49ab-b219-00ca5738e778",
+            "type": "正转",
+            "motor_id": 1,
+            "start_time": 0.0,
+            "duration": 1.0,
+            "parameters": {
+              "target_angle": 180.0,
+              "speed_ms": 3000
+            }
+          },
+          {
+            "id": "64d8a3f1-25ce-4ccd-ae50-a0f91e40bcd8",
+            "type": "正转",
+            "motor_id": 1,
+            "start_time": 1,
+            "duration": 1.0,
+            "parameters": {
+              "target_angle": 0.0,
+              "speed_ms": 3000
+            }
+          }
+        ]
+      },
+      {
+        "motor_id": 2,
+        "name": "舵机2",
+        "loop_mode": "单次",
+        "components": []
+      },
+      {
+        "motor_id": 3,
+        "name": "舵机3",
+        "loop_mode": "单次",
+        "components": []
+      },
+      {
+        "motor_id": 4,
+        "name": "舵机4",
+        "loop_mode": "单次",
+        "components": []
+      },
+      {
+        "motor_id": 5,
+        "name": "舵机5",
+        "loop_mode": "单次",
+        "components": []
+      },
+      {
+        "motor_id": 6,
+        "name": "舵机6",
+        "loop_mode": "单次",
+        "components": []
+      },
+      {
+        "motor_id": 7,
+        "name": "舵机7",
+        "loop_mode": "单次",
+        "components": []
+      },
+      {
+        "motor_id": 8,
+        "name": "舵机8",
+        "loop_mode": "单次",
+        "components": []
+      },
+      {
+        "motor_id": 9,
+        "name": "舵机9",
+        "loop_mode": "单次",
+        "components": []
+      },
+      {
+        "motor_id": 10,
+        "name": "舵机10",
+        "loop_mode": "单次",
+        "components": []
+      },
+      {
+        "motor_id": 11,
+        "name": "舵机11",
+        "loop_mode": "单次",
+        "components": []
+      },
+      {
+        "motor_id": 12,
+        "name": "舵机12",
+        "loop_mode": "单次",
+        "components": []
+      },
+      {
+        "motor_id": 13,
+        "name": "舵机13",
+        "loop_mode": "单次",
+        "components": []
+      },
+      {
+        "motor_id": 14,
+        "name": "舵机14",
+        "loop_mode": "单次",
+        "components": []
+      },
+      {
+        "motor_id": 15,
+        "name": "舵机15",
+        "loop_mode": "单次",
+        "components": []
+      },
+      {
+        "motor_id": 16,
+        "name": "舵机16",
+        "loop_mode": "单次",
+        "components": []
+      },
+      {
+        "motor_id": 17,
+        "name": "舵机17",
+        "loop_mode": "单次",
+        "components": []
+      }
+    ],
+    "time_scale": 1.0,
+    "time_unit": "秒",
+    "total_duration": 2.0
+  }
+}
