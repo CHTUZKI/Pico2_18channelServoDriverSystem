@@ -174,9 +174,9 @@ class SerialComm(QObject):
             # 发送
             self.serial_port.write(frame)
             
-            # 发送日志
+            # 发送日志（详细记录）
             hex_str = ' '.join([f'{b:02X}' for b in frame])
-            logger.debug(f"发送: {hex_str}")
+            logger.info(f"[TX → MCU] 命令=0x{cmd:02X} 数据长度={len(data)} 帧={hex_str}")
             self.data_sent.emit(f"TX: {hex_str}")
             
             return True
@@ -461,31 +461,38 @@ class SerialComm(QObject):
         try:
             # 转换为十六进制字符串（先显示，便于调试）
             hex_str = ' '.join([f'{b:02X}' for b in frame])
-            logger.info(f"接收协议帧: {hex_str}")
             
             # 验证CRC（从ID开始，不包含帧头FF FE）
             crc_expected = self.crc16_ccitt(frame[2:-2])  # 从第3个字节（ID）开始到CRC之前
             crc_received = (frame[-2] << 8) | frame[-1]
             
             if crc_expected != crc_received:
-                logger.warning(f"CRC校验失败 - 期望: {crc_expected:04X}, 实际: {crc_received:04X}")
+                logger.warning(f"[RX ← MCU] CRC错误! 帧={hex_str} 期望CRC={crc_expected:04X} 实际CRC={crc_received:04X}")
                 self.data_received.emit(f"RX: {hex_str} [CRC错误]")
                 return
             
             # 解析帧
             cmd = frame[3]
             resp_code = frame[5] if len(frame) > 5 else 0
+            data_len = frame[4] if len(frame) > 4 else 0
+            
+            # 详细日志（RX数据）
+            logger.info(f"[RX ← MCU] 命令=0x{cmd:02X} 响应码=0x{resp_code:02X} 数据长度={data_len} 帧={hex_str}")
             
             # 显示协议帧
             self.data_received.emit(f"RX: {hex_str}")
             
-            # 解析响应
-            if cmd == self.RESP_OK or resp_code == 0:
-                logger.info(f"命令执行成功 (CMD: 0x{cmd:02X})")
-            elif cmd == self.RESP_ERROR:
-                logger.warning(f"命令执行失败 (CMD: 0x{cmd:02X})")
+            # 解析响应（详细说明）
+            if resp_code == 0x00:
+                logger.info(f"  └─ 响应: 成功 (OK)")
+            elif resp_code == 0x01:
+                logger.warning(f"  └─ 响应: 错误 (ERROR)")
+            elif resp_code == 0x02:
+                logger.warning(f"  └─ 响应: 无效命令 (INVALID_CMD)")
+            elif resp_code == 0x03:
+                logger.warning(f"  └─ 响应: 无效参数 (INVALID_PARAM)")
             elif cmd == self.CMD_PING:
-                logger.info("PONG - 设备响应正常")
+                logger.info("  └─ 响应: PONG (设备响应正常)")
             
         except Exception as e:
             logger.error(f"处理帧失败: {e}")

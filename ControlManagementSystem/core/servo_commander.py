@@ -250,10 +250,14 @@ class ServoCommander:
                         trapezoid_servos = []     # 梯形速度的舵机（需要逐个发送）
                         max_wait_time = 0.0
                         
+                        logger.info("=" * 80)
+                        logger.info(f"[执行命令 {i+1}/{len(sequence)}] 时间点={cmd['time']:.2f}s")
+                        
                         for servo_id, data in servo_data.items():
                             angle = data['angle']
                             component = data['component']
                             motion_mode = component.parameters.get('motion_mode', 'time')
+                            current_angle = self.current_positions[servo_id]
                             
                             if motion_mode == 'trapezoid':
                                 # 梯形速度模式
@@ -270,17 +274,18 @@ class ServoCommander:
                                 })
                                 
                                 # 估算梯形速度的运动时间
-                                distance = abs(angle - self.current_positions[servo_id])
+                                distance = abs(angle - current_angle)
                                 # 简化估算：时间 ≈ 距离/平均速度 + 加减速时间
                                 estimated_time = distance / (velocity * 0.7) + (velocity / acceleration)
                                 max_wait_time = max(max_wait_time, estimated_time)
                                 
-                                logger.info(f"    舵机{servo_id}[梯形]: {angle:.1f}°, v={velocity:.1f}°/s, a={acceleration:.1f}°/s²")
+                                logger.info(f"  舵机{servo_id}[梯形]: {current_angle:.1f}° → {angle:.1f}° (Δ={distance:.1f}°) v={velocity:.1f}°/s a={acceleration:.1f}°/s² 预计{estimated_time:.2f}s")
                             else:
                                 # 基于时间模式
                                 time_based_servos[servo_id] = angle
                                 max_wait_time = max(max_wait_time, speed_ms / 1000.0)
-                                logger.info(f"    舵机{servo_id}[时间]: {angle:.1f}°, 时间={speed_ms}ms")
+                                distance = abs(angle - current_angle)
+                                logger.info(f"  舵机{servo_id}[时间]: {current_angle:.1f}° → {angle:.1f}° (Δ={distance:.1f}°) 时间={speed_ms}ms")
                         
                         # 发送基于时间的批量命令
                         if time_based_servos:

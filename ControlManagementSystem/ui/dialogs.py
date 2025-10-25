@@ -295,6 +295,10 @@ class ComponentEditDialog(QDialog):
         """确定按钮"""
         # 更新部件参数
         if self.component.type in [ComponentType.FORWARD_ROTATION, ComponentType.REVERSE_ROTATION]:
+            old_angle = self.component.parameters.get('target_angle', 90.0)
+            old_speed_ms = self.component.parameters.get('speed_ms', 1000)
+            old_mode = self.component.parameters.get('motion_mode', 'time')
+            
             self.component.parameters['target_angle'] = self.angle_spin.value()
             self.component.parameters['speed_ms'] = self.speed_ms_spin.value()
             
@@ -305,11 +309,25 @@ class ComponentEditDialog(QDialog):
             self.component.parameters['acceleration'] = self.acceleration_spin.value()
             self.component.parameters['deceleration'] = self.deceleration_spin.value()
             
+            # 详细日志: 参数修改
+            logger.info("=" * 80)
+            logger.info(f"[UI操作] 编辑部件: {self.component.type.value} (舵机{self.component.motor_id})")
+            logger.info(f"  目标角度: {old_angle}° → {self.angle_spin.value()}°")
+            logger.info(f"  运动时间: {old_speed_ms}ms → {self.speed_ms_spin.value()}ms")
+            logger.info(f"  运动模式: {old_mode} → {motion_mode}")
+            if motion_mode == 'trapezoid':
+                logger.info(f"  最大速度: {self.velocity_spin.value()}°/s")
+                logger.info(f"  加速度: {self.acceleration_spin.value()}°/s²")
+                logger.info(f"  减速度: {self.deceleration_spin.value()}°/s²")
+            logger.info("=" * 80)
+            
         elif self.component.type == ComponentType.HOME:
             self.component.parameters['home_angle'] = self.home_angle_spin.value()
             self.component.parameters['speed_ms'] = self.speed_ms_spin.value()
+            logger.info(f"[UI操作] 编辑归零部件: 舵机{self.component.motor_id}, 归零角度={self.home_angle_spin.value()}°")
         elif self.component.type == ComponentType.DELAY:
             self.component.parameters['delay_time'] = self.delay_spin.value()
+            logger.info(f"[UI操作] 编辑延时部件: 舵机{self.component.motor_id}, 延时={self.delay_spin.value()}s")
         
         self.component_updated.emit(self.component)
         super().accept()
