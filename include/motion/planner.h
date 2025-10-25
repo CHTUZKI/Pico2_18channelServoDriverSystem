@@ -1,6 +1,6 @@
 /**
  * @file planner.h
- * @brief 运动规划器 - Look-Ahead Motion Planner (参考 grblHAL)
+ * @brief 运动规划器 - Look-Ahead Motion Planner
  * @date 2025-10-25
  * 
  * 功能：
@@ -10,7 +10,7 @@
  * - 时间戳驱动的自主调度
  * 
  * 设计理念：
- * - 参考 grblHAL 的运动规划器架构
+ * - 工业级运动规划器架构
  * - 反向传递计算最大进入速度
  * - 前向传递确保速度连续
  * - 自动重新计算梯形曲线参数
@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include "config/config.h"
 
 // ==================== 配置参数 ====================

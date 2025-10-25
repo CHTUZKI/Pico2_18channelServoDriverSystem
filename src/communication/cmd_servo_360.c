@@ -11,6 +11,7 @@
 #include "utils/usb_bridge.h"
 #include "config/config.h"
 #include <string.h>
+#include <stdlib.h>
 
 // ==================== 调试宏 ====================
 #if DEBUG_COMMAND
@@ -26,10 +27,10 @@
  */
 void cmd_add_continuous_motion(const protocol_frame_t *frame, command_result_t *result) {
     // 检查数据长度
-    if (frame->data_len != 10) {
+    if (frame->len != 10) {
         result->resp_code = RESP_INVALID_PARAM;
         result->data_len = 0;
-        CMD_DEBUG("[CMD] ADD_CONTINUOUS: Invalid length %d (expected 10)\n", frame->data_len);
+        CMD_DEBUG("[CMD] ADD_CONTINUOUS: Invalid length %d (expected 10)\n", frame->len);
         return;
     }
     
@@ -91,7 +92,7 @@ void cmd_add_continuous_motion(const protocol_frame_t *frame, command_result_t *
  *              total: 2字节
  */
 void cmd_servo_360_set_speed(const protocol_frame_t *frame, command_result_t *result) {
-    if (frame->data_len != 2) {
+    if (frame->len != 2) {
         result->resp_code = RESP_INVALID_PARAM;
         result->data_len = 0;
         return;
@@ -125,7 +126,7 @@ void cmd_servo_360_set_speed(const protocol_frame_t *frame, command_result_t *re
  *              total: 1字节, 0xFF表示全部
  */
 void cmd_servo_360_soft_stop(const protocol_frame_t *frame, command_result_t *result) {
-    if (frame->data_len != 1) {
+    if (frame->len != 1) {
         result->resp_code = RESP_INVALID_PARAM;
         result->data_len = 0;
         return;
@@ -150,7 +151,7 @@ void cmd_servo_360_soft_stop(const protocol_frame_t *frame, command_result_t *re
  *              total: 3字节
  */
 void cmd_servo_360_set_accel(const protocol_frame_t *frame, command_result_t *result) {
-    if (frame->data_len != 3) {
+    if (frame->len != 3) {
         result->resp_code = RESP_INVALID_PARAM;
         result->data_len = 0;
         return;
@@ -181,7 +182,7 @@ void cmd_servo_360_set_accel(const protocol_frame_t *frame, command_result_t *re
  *              total: 4字节
  */
 void cmd_servo_360_get_info(const protocol_frame_t *frame, command_result_t *result) {
-    if (frame->data_len != 1) {
+    if (frame->len != 1) {
         result->resp_code = RESP_INVALID_PARAM;
         result->data_len = 0;
         return;

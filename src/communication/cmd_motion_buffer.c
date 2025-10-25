@@ -27,10 +27,10 @@
  */
 void cmd_add_motion_block(const protocol_frame_t *frame, command_result_t *result) {
     // 检查数据长度
-    if (frame->data_len != 13) {
+    if (frame->len != 13) {
         result->resp_code = RESP_INVALID_PARAM;
         result->data_len = 0;
-        CMD_DEBUG("[CMD] ADD_BLOCK: Invalid length %d (expected 13)\n", frame->data_len);
+        CMD_DEBUG("[CMD] ADD_BLOCK: Invalid length %d (expected 13)\n", frame->len);
         return;
     }
     

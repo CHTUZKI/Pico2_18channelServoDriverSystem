@@ -2,7 +2,7 @@
 
 ## 📋 **概述**
 
-本项目实现了参考 **grblHAL** 的 Look-Ahead Motion Planner，用于18路舵机系统的**速度平滑过渡**和**连续运动规划**。
+本项目实现了工业级的 Look-Ahead Motion Planner，用于18路舵机系统的**速度平滑过渡**和**连续运动规划**。
 
 ### **核心特性**
 
@@ -403,20 +403,16 @@ CPU占用率：< 0.2%  ✅ 非常低
 
 ## 📚 **参考资料**
 
-1. **grblHAL Planner**
-   - GitHub: https://github.com/grblHAL/core.git
-   - 文件：`planner.c`, `planner.h`
-   - 算法：Look-Ahead Planning, Junction Speed Calculation
-
-2. **运动规划理论**
-   - Trajectory Planning for CNC
+1. **运动规划理论**
+   - Look-Ahead Planning
    - Velocity Blending Algorithms
    - Trapezoidal Velocity Profile
+   - Junction Speed Calculation
 
-3. **本项目文档**
-   - `MOTION_PLANNING_PLAN.md` - 原始规划文档
+2. **本项目文档**
    - `ARCHITECTURE_OVERVIEW.md` - 架构总览
    - `SYSTEM_FLOW.md` - 系统流程图
+   - `SERVO_360_PLANNER_INTEGRATION.md` - 360度舵机集成
 
 ---
 
@@ -458,10 +454,9 @@ CPU占用率：< 0.2%  ✅ 非常低
 
 **版本**: V1.0  
 **日期**: 2025-10-25  
-**作者**: AI Assistant  
-**参考**: grblHAL Look-Ahead Planner
+**作者**: 
 
 ---
 
-**使用此规划器，您的舵机系统将具备工业级CNC的运动平滑度！** 🚀
+**使用此规划器，您的舵机系统将具备工业级运动控制的平滑度！** 🚀
 

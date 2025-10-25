@@ -3,8 +3,7 @@
  * @brief 运动规划器实现 - Look-Ahead Motion Planner
  * @date 2025-10-25
  * 
- * 算法参考：grblHAL planner
- * 核心思想：
+ * 核心算法：
  *   1. 反向传递（Reverse Pass）：从后往前计算最大进入速度
  *   2. 前向传递（Forward Pass）：从前往后确保速度连续
  *   3. 重新计算梯形曲线参数
@@ -17,6 +16,7 @@
 #include "pico/stdlib.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 
 // ==================== 调试宏 ====================
@@ -36,8 +36,13 @@ static planner_execute_callback_t g_execute_callback = NULL;
 
 // ==================== 辅助宏 ====================
 
+// 使用Pico SDK已定义的MIN/MAX宏，避免重定义
+#ifndef MIN
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
+#ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+#endif
 #define CLAMP(x, min, max) ((x) < (min) ? (min) : ((x) > (max) ? (max) : (x)))
 
 // 环形缓冲区索引操作
@@ -132,13 +137,7 @@ bool planner_add_motion(uint32_t timestamp_ms,
     block->valid = true;
     
     // ========== 初步计算梯形曲线（假设从0到0）==========
-    motion_params_t params = {
-        .max_velocity = velocity,
-        .acceleration = acceleration,
-        .deceleration = block->deceleration
-    };
-    
-    // 使用插值模块计算梯形曲线参数
+    // 计算梯形曲线参数
     float t_accel, t_const, t_decel, v_max_actual;
     
     // 计算完整的梯形曲线（从0速度到0速度）
