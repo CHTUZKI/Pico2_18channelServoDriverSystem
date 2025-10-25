@@ -13,24 +13,42 @@
 #define SYSTEM_VERSION_PATCH    0
 
 // ==================== 调试开关 ====================
-#define DEBUG_ENABLE            1       // 主调试开关
-#define DEBUG_USB               0       // USB通信调试（USB数据收发、轮询）
-#define DEBUG_MOTION            1       // 运动插值调试（插值计算、运动状态）
-#define DEBUG_SERVO             0       // 舵机角度转换调试（角度转PWM、使能状态）
-#define DEBUG_PWM               0       // PWM调试（PWM输出、占空比计算）
-#define DEBUG_SYSTEM            0       // 系统心跳调试（LED、心跳计数）
-#define DEBUG_FLASH             0       // Flash存储调试（读写Flash、参数加载）
-#define DEBUG_PROTOCOL          1       // 协议解析调试（帧解析、CRC校验）
-#define DEBUG_COMMAND           1       // 命令处理调试（命令执行、响应发送）
-#define DEBUG_AO_COMM           1       // Communication AO调试（状态机、事件处理）
-#define DEBUG_AO_MOTION         0       // Motion AO调试（状态机、运动控制）
-#define DEBUG_AO_SYSTEM         0       // System AO调试（状态机、系统事件）
-#define DEBUG_STARTUP           1       // 启动流程调试（系统初始化、版本信息）
-#define DEBUG_PARAM             1       // 参数管理调试（参数保存、加载、验证）
+// 主开关
+#define DEBUG_ENABLE            1       // 主调试开关（关闭后禁用所有调试输出）
+
+// 启动和系统信息（建议始终开启）
+#define DEBUG_STARTUP           1       // 启动信息（版本、平台、初始化状态）
+#define DEBUG_SYSTEM            0       // 系统心跳（LED闪烁计数）
+
+// 通信相关调试（当前关闭，减少输出）
+#define DEBUG_USB               0       // USB底层（Event轮询、缓冲区状态）
+#define DEBUG_PROTOCOL          0       // 协议解析（帧解析、CRC校验）
+#define DEBUG_COMMAND           1       // 命令处理（显示接收到的命令）✅ 开启
+#define DEBUG_AO_COMM           0       // Communication AO状态机
+
+// 运动控制调试
+#define DEBUG_MOTION            0       // 运动插值每次更新（会很多，不推荐）
+#define DEBUG_MOTION_SUMMARY    1       // 运动摘要（开始参数、曲线分段）✅ 开启
+#define DEBUG_MOTION_PROGRESS   1       // 运动进度（25%/50%/75%关键点）✅ 开启
+#define DEBUG_AO_MOTION         0       // Motion AO状态转换（已优化，可关闭）
+
+// 运动缓冲区和调度器调试（新架构）
+#define DEBUG_SCHEDULER         1       // 调度器执行（显示指令触发）✅ 开启
+#define DEBUG_BUFFER            1       // 缓冲区操作（添加/移除指令）✅ 开启
+
+// 舵机和PWM调试
+#define DEBUG_SERVO             0       // 舵机角度转换（每次都输出，太多）
+#define DEBUG_PWM               0       // PWM底层设置（每次都输出，太多）
+#define DEBUG_PWM_SUMMARY       1       // PWM变化摘要（仅输出变化超过阈值的）✅ 新增
+
+// 存储调试
+#define DEBUG_FLASH             0       // Flash读写操作
+#define DEBUG_PARAM             0       // 参数管理（启动时查看参数）
 
 // ==================== 测试开关 ====================
 #define ENABLE_AUTO_TEST        0       // 自动测试模式（上电自动运行测试序列）
-#define ENABLE_GPIO_MONITOR     1       // GPIO监控器（Core1监控PWM输出）
+#define ENABLE_GPIO_MONITOR     1       // GPIO监控器（Core1每2秒报告PWM状态）
+#define PWM_MONITOR_INTERVAL_SEC  2     // PWM监控报告间隔（秒）
 
 // ==================== 舵机参数 ====================
 #define SERVO_COUNT             18          // 舵机数量

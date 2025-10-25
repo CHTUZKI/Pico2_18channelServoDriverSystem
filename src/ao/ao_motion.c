@@ -15,6 +15,7 @@
 #include "servo/servo_manager.h"
 #include "test/auto_test.h"
 #include "utils/usb_bridge.h"
+#include "motion/motion_scheduler.h"  // 使用运动调度器（替代motion_buffer）
 #include <stdio.h>
 #include <math.h>
 
@@ -39,6 +40,24 @@ static QState AO_Motion_initial(AO_Motion_t * const me, void const * const par);
 static QState AO_Motion_idle(AO_Motion_t * const me, QEvt const * const e);
 static QState AO_Motion_moving(AO_Motion_t * const me, QEvt const * const e);
 
+// ==================== 运动执行回调 ====================
+/**
+ * @brief 调度器回调：执行梯形速度运动
+ */
+static void motion_execute_trapezoid_callback(uint8_t servo_id, float target_angle, 
+                                             float velocity, float acceleration, float deceleration) {
+    AO_Motion_set_trapezoid(servo_id, target_angle, velocity, acceleration, deceleration);
+    
+    // 发送MOTION_START事件触发状态转换
+    static MotionStartEvt start_evt;
+    start_evt.super.sig = MOTION_START_SIG;
+    start_evt.axis_count = 1;
+    start_evt.duration_ms = 0;
+    start_evt.target_positions[servo_id] = target_angle;
+    
+    QACTIVE_POST((QActive *)&AO_Motion_inst, (QEvt *)&start_evt, 0);
+}
+
 // ==================== 构造函数 ====================
 
 void AO_Motion_ctor(void) {
@@ -55,6 +74,10 @@ void AO_Motion_ctor(void) {
     
     // 初始化状态数据
     me->is_moving = false;
+    
+    // 初始化运动调度器并注册回调
+    motion_scheduler_init();
+    motion_scheduler_set_callback(motion_execute_trapezoid_callback);
 }
 
 // ==================== 状态机实现 ====================
@@ -103,38 +126,53 @@ static QState AO_Motion_idle(AO_Motion_t * const me, QEvt const * const e) {
             LOG_DEBUG("[AO-MOTION] Motion start, axis_count=%d, duration=%d ms\n", 
                    evt->axis_count, evt->duration_ms);
             
-            // 设置插值器 - 初始化所有舵机的起始位置
-            float start_positions[SERVO_COUNT];
-            // 先获取所有舵机的当前位置
+            // 检查是否有舵机已经设置了梯形速度（状态为MOVING且类型为TRAPEZOID）
+            bool has_trapezoid = false;
             for (uint8_t i = 0; i < SERVO_COUNT; i++) {
-                start_positions[i] = servo_get_angle(i);
+                if (me->interpolator.axes[i].state == MOTION_STATE_MOVING &&
+                    me->interpolator.axes[i].type == INTERP_TYPE_TRAPEZOID) {
+                    has_trapezoid = true;
+                    break;
+                }
             }
             
-            #if DEBUG_MOTION
-            // 调试：打印起始位置（避免浮点printf问题）
-            LOG_DEBUG("[AO-MOTION] Start positions: ");
-            for (int i = 0; i < SERVO_COUNT; i++) {
-                int angle_int = (int)(start_positions[i] * 10);
-                printf("%d.%d ", angle_int / 10, angle_int % 10);
+            if (has_trapezoid) {
+                // 如果有梯形速度运动，不要覆盖插值器设置
+                // 梯形速度的插值器已经在AO_Motion_set_trapezoid中设置好了
+                #if DEBUG_MOTION_SUMMARY
+                usb_bridge_printf("[MOTION] Trapezoid motion detected, skip interpolator reset\n");
+                #endif
+                
+                // 重要！确保其他没有设置梯形速度的舵机保持IDLE状态
+                int moving_count = 0;
+                for (uint8_t i = 0; i < SERVO_COUNT; i++) {
+                    if (me->interpolator.axes[i].type == INTERP_TYPE_TRAPEZOID &&
+                        me->interpolator.axes[i].state == MOTION_STATE_MOVING) {
+                        moving_count++;
+                    } else {
+                        me->interpolator.axes[i].state = MOTION_STATE_IDLE;
+                        me->interpolator.axes[i].current_pos = servo_get_angle(i);
+                    }
+                }
+                
+                #if DEBUG_MOTION_SUMMARY
+                usb_bridge_printf("[MOTION] Active servos: %d (others forced to IDLE)\n", moving_count);
+                #endif
+            } else {
+                // 基于时间的运动，设置插值器
+                float start_positions[SERVO_COUNT];
+                for (uint8_t i = 0; i < SERVO_COUNT; i++) {
+                    start_positions[i] = servo_get_angle(i);
+                }
+                
+                LOG_DEBUG("[AO-MOTION] Setting up interpolator for all axes\n");
+                
+                multi_interpolator_set_motion(&me->interpolator,
+                                            start_positions,
+                                            evt->target_positions,
+                                            evt->duration_ms,
+                                            INTERP_TYPE_S_CURVE);  // 使用S曲线
             }
-            printf("\n");
-            
-            // 调试：打印目标位置（避免浮点printf问题）
-            LOG_DEBUG("[AO-MOTION] Target positions: ");
-            for (int i = 0; i < SERVO_COUNT; i++) {
-                int angle_int = (int)(evt->target_positions[i] * 10);
-                printf("%d.%d ", angle_int / 10, angle_int % 10);
-            }
-            printf("\n");
-            #endif
-            
-            LOG_DEBUG("[AO-MOTION] Setting up interpolator for all axes\n");
-            
-            multi_interpolator_set_motion(&me->interpolator,
-                                        start_positions,
-                                        evt->target_positions,
-                                        evt->duration_ms,
-                                        INTERP_TYPE_S_CURVE);  // 使用S曲线
             
             // 转换到moving状态
             status = Q_TRAN(&AO_Motion_moving);
@@ -142,7 +180,9 @@ static QState AO_Motion_idle(AO_Motion_t * const me, QEvt const * const e) {
         }
         
         case INTERP_TICK_SIG: {
-            // 空闲状态下忽略插值Tick
+            // 运动缓冲区调度器（每20ms检查一次）
+            motion_scheduler_update();
+            
             status = Q_HANDLED();
             break;
         }
@@ -203,27 +243,30 @@ static QState AO_Motion_moving(AO_Motion_t * const me, QEvt const * const e) {
             }
             
             if (!valid_output) {
-                LOG_DEBUG("[AO-MOTION] ERROR: Invalid interpolator output, stopping motion\n");
+                usb_bridge_printf("[ERROR] Invalid interpolator output, stopping motion\n");
                 status = Q_TRAN(&AO_Motion_idle);
                 break;
             }
             
-            #if DEBUG_MOTION
-            // 调试：减少输出频率（每10次输出一次）
-            static uint32_t debug_count = 0;
-            debug_count++;
-            if (debug_count % 10 == 0) {
-                LOG_DEBUG("[AO-MOTION] Interpolator output: ");
-                for (int i = 0; i < SERVO_COUNT; i++) {
-                    int angle_int = (int)(output_positions[i] * 10);
-                    printf("%d.%d° ", angle_int / 10, angle_int % 10);
+            // 只应用正在运动的舵机（优化性能，避免误触其他舵机）
+            for (int i = 0; i < SERVO_COUNT; i++) {
+                if (me->interpolator.axes[i].state == MOTION_STATE_MOVING) {
+                    // 只更新正在运动的舵机
+                    servo_set_angle(i, output_positions[i]);
+                    
+                    #if DEBUG_PWM_SUMMARY
+                    // 追踪PWM显著变化
+                    static float last_pwm_pos[SERVO_COUNT] = {90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90};
+                    float delta = fabsf(output_positions[i] - last_pwm_pos[i]);
+                    if (delta > 5.0f) {  // 变化超过5度才输出
+                        int pos_int = (int)output_positions[i];
+                        int delta_int = (int)delta;
+                        usb_bridge_printf("[PWM-CHG] Servo%d: %ddeg (Δ%d)\n", i, pos_int, delta_int);
+                        last_pwm_pos[i] = output_positions[i];
+                    }
+                    #endif
                 }
-                printf("\n");
             }
-            #endif
-            
-            // 应用到舵机
-            servo_set_all_angles(output_positions);
             
             // 调试：定期打印状态
             static uint32_t tick_count = 0;
@@ -291,8 +334,17 @@ bool AO_Motion_set_trapezoid(uint8_t axis_id, float target_pos, const motion_par
     // 设置梯形速度运动
     interpolator_set_trapezoid_motion(interp, start_pos, target_pos, params);
     
-    MOTION_DEBUG("[AO-MOTION] Set trapezoid motion: axis=%d, %.1f->%.1f, v=%.1f, a=%.1f\n",
-                 axis_id, start_pos, target_pos, params->max_velocity, params->acceleration);
+    #if DEBUG_MOTION_SUMMARY
+    // 运动摘要信息（整数格式，避免浮点printf问题）
+    int start_int = (int)start_pos;
+    int target_int = (int)target_pos;
+    int dist_int = (int)(target_pos - start_pos);
+    int vel_int = (int)(params->max_velocity * 10);  // ×10保留一位小数
+    int accel_int = (int)(params->acceleration * 10);
+    usb_bridge_printf("[MOTION] Trapezoid: Axis%d %d->%d deg (d=%d) v=%d.%d a=%d.%d\n",
+                     axis_id, start_int, target_int, dist_int,
+                     vel_int/10, vel_int%10, accel_int/10, accel_int%10);
+    #endif
     
     // 标记为运动中
     me->is_moving = true;
@@ -324,4 +376,5 @@ interpolator_t* AO_Motion_get_interpolator(uint8_t axis_id) {
     
     return &AO_Motion_inst.interpolator.axes[axis_id];
 }
+
 

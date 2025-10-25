@@ -17,6 +17,7 @@
 #include "servo/servo_control.h"
 #include "servo/servo_manager.h"
 #include "storage/param_manager.h"
+#include "motion/interpolation.h"  // 添加：用于motion_params_t
 #include "utils/ring_buffer.h"
 #include "utils/usb_bridge.h"  // 使用USB桥接器代替直接访问USB
 #include <stdio.h>
@@ -37,6 +38,7 @@ static void send_response(uint8_t id, uint8_t cmd, uint8_t resp_code,
                          const uint8_t *data, uint16_t data_len);
 static void handle_move_single(const protocol_frame_t *frame);
 static void handle_move_all(const protocol_frame_t *frame);
+static void handle_move_trapezoid(const protocol_frame_t *frame);
 static void handle_get_single(const protocol_frame_t *frame);
 static void handle_get_all(const protocol_frame_t *frame);
 static void handle_enable(const protocol_frame_t *frame);
@@ -174,6 +176,9 @@ static QState AO_Communication_active(AO_Communication_t * const me, QEvt const 
                                     break;
                                 case CMD_MOVE_ALL:
                                     handle_move_all(frame);
+                                    break;
+                                case CMD_MOVE_TRAPEZOID:
+                                    handle_move_trapezoid(frame);
                                     break;
                                 case CMD_GET_SINGLE:
                                     handle_get_single(frame);
@@ -380,6 +385,71 @@ static void handle_move_all(const protocol_frame_t *frame) {
     #if DEBUG_USB
     LOG_DEBUG("[CMD] MOVE_ALL handler complete\n");
     #endif
+}
+
+static void handle_move_trapezoid(const protocol_frame_t *frame) {
+    // 数据格式（9字节）：
+    // [0]: servo_id
+    // [1-2]: target_angle (int16, 角度×100)
+    // [3-4]: max_velocity (uint16, 度/秒×10)
+    // [5-6]: acceleration (uint16, 度/秒²×10)
+    // [7-8]: deceleration (uint16, 度/秒²×10, 如果为0则使用acceleration)
+    if (frame->len < 9) {
+        send_response(frame->id, frame->cmd, RESP_INVALID_PARAM, NULL, 0);
+        return;
+    }
+    
+    uint8_t servo_id = frame->data[0];
+    if (servo_id >= SERVO_COUNT) {
+        send_response(frame->id, frame->cmd, RESP_INVALID_PARAM, NULL, 0);
+        return;
+    }
+    
+    // 解析参数
+    int16_t angle_raw = (int16_t)((frame->data[1] << 8) | frame->data[2]);
+    uint16_t velocity_raw = (frame->data[3] << 8) | frame->data[4];
+    uint16_t accel_raw = (frame->data[5] << 8) | frame->data[6];
+    uint16_t decel_raw = (frame->data[7] << 8) | frame->data[8];
+    
+    // 转换为实际值
+    float target_angle = (float)angle_raw / 100.0f;
+    motion_params_t params;
+    params.max_velocity = (float)velocity_raw / 10.0f;
+    params.acceleration = (float)accel_raw / 10.0f;
+    params.deceleration = (float)decel_raw / 10.0f;
+    
+    #if DEBUG_COMMAND
+    // 命令调试信息（整数格式）
+    int angle_int = (int)target_angle;
+    int vel_int = velocity_raw;  // 已经是×10
+    int acc_int = accel_raw;
+    LOG_DEBUG("[CMD] TRAPEZOID: Servo%d->%ddeg v=%d.%d a=%d.%d\n",
+              servo_id, angle_int, vel_int/10, vel_int%10, acc_int/10, acc_int%10);
+    #endif
+    
+    // 调用AO_Motion的梯形速度接口设置插值器
+    bool result = AO_Motion_set_trapezoid(servo_id, target_angle, &params);
+    
+    if (result) {
+        // 重要！发送MOTION_START事件，触发AO_Motion状态转换到moving
+        // 这样才会执行插值更新循环
+        MotionStartEvt *start_evt = Q_NEW(MotionStartEvt, MOTION_START_SIG);
+        start_evt->axis_count = 1;
+        start_evt->axis_ids[0] = servo_id;
+        start_evt->duration_ms = 0;  // 梯形速度模式不使用这个参数
+        
+        // 填充target_positions（保持其他舵机不动）
+        for (uint8_t i = 0; i < SERVO_COUNT; i++) {
+            start_evt->target_positions[i] = servo_get_angle(i);
+        }
+        start_evt->target_positions[servo_id] = target_angle;
+        
+        QACTIVE_POST(AO_Motion, &start_evt->super, AO_Communication);
+        
+        send_response(frame->id, frame->cmd, RESP_OK, NULL, 0);
+    } else {
+        send_response(frame->id, frame->cmd, RESP_ERROR, NULL, 0);
+    }
 }
 
 static void handle_get_single(const protocol_frame_t *frame) {

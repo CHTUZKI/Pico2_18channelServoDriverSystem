@@ -43,7 +43,7 @@ class MainWindow(QMainWindow):
         # 初始化组件
         self.timeline_data = TimelineData()
         self.serial_comm = SerialComm()
-        self.servo_commander = ServoCommander()
+        self.servo_commander = ServoCommander(self.serial_comm)
         self.project_manager = ProjectManager()
         
         # 舵机设置（简化配置）
@@ -897,14 +897,7 @@ class MainWindow(QMainWindow):
         
         logger.info("开始执行舵机控制程序")
         
-        # 生成命令序列
-        sequence = self.servo_commander.generate_command_sequence(self.timeline_widget.timeline_data)
-        
-        if not sequence:
-            QMessageBox.warning(self, "警告", "没有可执行的命令")
-            return
-        
-        # 在后台线程执行命令序列
+        # 在后台线程执行（新架构：流式缓冲区模式）
         import threading
         def execute_thread():
             self.is_running = True
@@ -912,10 +905,8 @@ class MainWindow(QMainWindow):
             self.stop_action.setEnabled(True)
             self.running_label.setText("运行中")
             
-            # 传入timeline_data以支持循环模式
-            success = self.servo_commander.execute_sequence(
-                self.serial_comm, 
-                sequence, 
+            # 流式缓冲区模式：Pico自主调度执行
+            success = self.servo_commander.execute_timeline(
                 self.timeline_widget.timeline_data
             )
             
@@ -935,8 +926,11 @@ class MainWindow(QMainWindow):
     def stop_program(self):
         """停止程序"""
         if self.is_connected:
-            # 发送停止信号给servo_commander（退出循环）
-            self.servo_commander.stop_execution()
+            # 停止servo_commander
+            self.servo_commander.stop()
+            
+            # 发送停止命令到Pico
+            self.serial_comm.stop_motion()
             
             # 发送紧急停止命令到单片机
             self.serial_comm.emergency_stop()

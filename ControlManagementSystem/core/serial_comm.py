@@ -14,8 +14,12 @@ import threading
 from typing import List, Optional, Callable, Dict, Any
 from PyQt5.QtCore import QObject, pyqtSignal
 import logging
+from .logger import get_logger, get_serial_logger
 
-logger = logging.getLogger('servo_controller')
+# 应用日志：记录上位机操作
+logger = get_logger()
+# 串口日志：记录串口收发数据
+serial_logger = get_serial_logger()
 
 class SerialComm(QObject):
     """串口通信类 - 舵机控制协议"""
@@ -36,6 +40,16 @@ class SerialComm(QObject):
     CMD_SAVE_FLASH = 0x30
     CMD_LOAD_FLASH = 0x31
     CMD_SET_START_POSITIONS = 0x33
+    
+    # 运动缓冲区管理命令（新架构）
+    CMD_ADD_MOTION_BLOCK = 0x40      # 添加运动指令到缓冲区
+    CMD_START_MOTION = 0x41          # 开始执行缓冲区指令
+    CMD_STOP_MOTION = 0x42           # 停止执行
+    CMD_PAUSE_MOTION = 0x43          # 暂停执行
+    CMD_RESUME_MOTION = 0x44         # 恢复执行
+    CMD_CLEAR_BUFFER = 0x45          # 清空缓冲区
+    CMD_GET_BUFFER_STATUS = 0x46     # 查询缓冲区状态
+    
     CMD_PING = 0xFE
     CMD_ESTOP = 0xFF
     
@@ -176,7 +190,7 @@ class SerialComm(QObject):
             
             # 发送日志（详细记录）
             hex_str = ' '.join([f'{b:02X}' for b in frame])
-            logger.info(f"[TX → MCU] 命令=0x{cmd:02X} 数据长度={len(data)} 帧={hex_str}")
+            serial_logger.info(f"[TX] CMD=0x{cmd:02X} LEN={len(data)} 帧={hex_str}")
             self.data_sent.emit(f"TX: {hex_str}")
             
             return True
@@ -285,6 +299,89 @@ class SerialComm(QObject):
         logger.warning("紧急停止!")
         return self.send_servo_command(self.CMD_ESTOP)
     
+    # ==================== 运动缓冲区管理（新架构） ====================
+    
+    def add_motion_block(self, timestamp_ms: int, servo_id: int, angle: float, 
+                        velocity: float, acceleration: float, deceleration: float = 0.0) -> bool:
+        """
+        添加运动指令到缓冲区
+        
+        Args:
+            timestamp_ms: 执行时间戳（从start开始计时，单位ms）
+            servo_id: 舵机ID (0-17)
+            angle: 目标角度（度）
+            velocity: 速度（度/秒）
+            acceleration: 加速度（度/秒²）
+            deceleration: 减速度（度/秒²，0表示与加速度相同）
+        
+        Returns:
+            bool: 是否成功
+        """
+        # 数据格式：[timestamp_ms(4)] [servo_id(1)] [angle(2)] [velocity(2)] [accel(2)] [decel(2)]
+        # total: 13字节
+        
+        # timestamp_ms (4字节, 小端序)
+        data = bytearray()
+        data.extend(timestamp_ms.to_bytes(4, 'little'))
+        
+        # servo_id (1字节)
+        data.append(servo_id)
+        
+        # angle (2字节, 有符号, 0.01度精度)
+        angle_raw = int(angle * 100)
+        data.extend(angle_raw.to_bytes(2, 'little', signed=True))
+        
+        # velocity (2字节, 无符号, 0.1度/秒精度)
+        vel_raw = int(velocity * 10)
+        data.extend(vel_raw.to_bytes(2, 'little'))
+        
+        # acceleration (2字节, 无符号, 0.1度/秒²精度)
+        accel_raw = int(acceleration * 10)
+        data.extend(accel_raw.to_bytes(2, 'little'))
+        
+        # deceleration (2字节, 无符号, 0.1度/秒²精度)
+        decel_raw = int(deceleration * 10) if deceleration > 0 else 0
+        data.extend(decel_raw.to_bytes(2, 'little'))
+        
+        return self.send_servo_command(self.CMD_ADD_MOTION_BLOCK, bytes(data))
+    
+    def start_motion(self) -> bool:
+        """开始执行缓冲区指令"""
+        return self.send_servo_command(self.CMD_START_MOTION, bytes())
+    
+    def stop_motion(self) -> bool:
+        """停止执行"""
+        return self.send_servo_command(self.CMD_STOP_MOTION, bytes())
+    
+    def pause_motion(self) -> bool:
+        """暂停执行"""
+        return self.send_servo_command(self.CMD_PAUSE_MOTION, bytes())
+    
+    def resume_motion(self) -> bool:
+        """恢复执行"""
+        return self.send_servo_command(self.CMD_RESUME_MOTION, bytes())
+    
+    def clear_buffer(self) -> bool:
+        """清空缓冲区"""
+        return self.send_servo_command(self.CMD_CLEAR_BUFFER, bytes())
+    
+    def get_buffer_status(self) -> dict:
+        """
+        查询缓冲区状态
+        
+        Returns:
+            dict: {'count': 已用, 'running': 是否运行, 'paused': 是否暂停, 'available': 可用空间}
+        """
+        response = self.send_servo_command(self.CMD_GET_BUFFER_STATUS, bytes())
+        if response and len(response) >= 4:
+            return {
+                'count': response[0],
+                'running': bool(response[1]),
+                'paused': bool(response[2]),
+                'available': response[3]
+            }
+        return {'count': 0, 'running': False, 'paused': False, 'available': 0}
+    
     def save_to_flash(self) -> bool:
         """保存参数到Flash"""
         logger.info("保存参数到Flash")
@@ -386,7 +483,7 @@ class SerialComm(QObject):
                     # 记录原始字节（用于调试）
                     if len(chunk) > 0:
                         hex_dump = ' '.join([f'{b:02X}' for b in chunk])
-                        logger.debug(f"原始接收: {len(chunk)}字节 - {hex_dump[:100]}")
+                        serial_logger.debug(f"[RX RAW] {len(chunk)}字节 - {hex_dump[:100]}")
                     
                     buffer.extend(chunk)
                     
@@ -451,7 +548,7 @@ class SerialComm(QObject):
                 for line in lines:
                     line = line.strip()
                     if line:
-                        logger.debug(f"接收调试信息: {line}")
+                        serial_logger.info(f"[RX MCU] {line}")
                         self.data_received.emit(line)
         except Exception as e:
             logger.debug(f"文本解码失败: {e}")
@@ -467,7 +564,7 @@ class SerialComm(QObject):
             crc_received = (frame[-2] << 8) | frame[-1]
             
             if crc_expected != crc_received:
-                logger.warning(f"[RX ← MCU] CRC错误! 帧={hex_str} 期望CRC={crc_expected:04X} 实际CRC={crc_received:04X}")
+                serial_logger.warning(f"[RX] CRC错误! 帧={hex_str} 期望={crc_expected:04X} 实际={crc_received:04X}")
                 self.data_received.emit(f"RX: {hex_str} [CRC错误]")
                 return
             
@@ -477,7 +574,9 @@ class SerialComm(QObject):
             data_len = frame[4] if len(frame) > 4 else 0
             
             # 详细日志（RX数据）
-            logger.info(f"[RX ← MCU] 命令=0x{cmd:02X} 响应码=0x{resp_code:02X} 数据长度={data_len} 帧={hex_str}")
+            resp_str = {0x00: "OK", 0x01: "ERROR", 0x02: "INVALID_CMD",
+                       0x03: "INVALID_PARAM", 0x04: "CRC_ERR", 0x05: "TIMEOUT", 0x06: "BUSY"}.get(resp_code, f"0x{resp_code:02X}")
+            serial_logger.info(f"[RX] CMD=0x{cmd:02X} RESP={resp_str} LEN={data_len} 帧={hex_str}")
             
             # 显示协议帧
             self.data_received.emit(f"RX: {hex_str}")
@@ -515,16 +614,22 @@ class SerialComm(QObject):
         Returns:
             bool: 是否发送成功
         """
+        logger.info(f"[TRACE-PC] move_servo_trapezoid ENTER: servo_id={servo_id}, angle={angle}, v={velocity}, a={acceleration}, d={deceleration}")
+        
         # 限制角度范围
         angle = max(0.0, min(180.0, angle))
         velocity = max(1.0, min(180.0, velocity))
         acceleration = max(1.0, min(500.0, acceleration))
+        
+        logger.info(f"[TRACE-PC] 参数限制后: angle={angle}, v={velocity}, a={acceleration}, d={deceleration}")
         
         # 转换参数（×100 / ×10）
         angle_raw = int(angle * 100)
         velocity_raw = int(velocity * 10)
         accel_raw = int(acceleration * 10)
         decel_raw = int(deceleration * 10) if deceleration > 0 else 0
+        
+        logger.info(f"[TRACE-PC] 参数转换: angle_raw={angle_raw}, velocity_raw={velocity_raw}, accel_raw={accel_raw}, decel_raw={decel_raw}")
         
         # 数据格式（9字节）：[ID][角度H][角度L][速度H][速度L][加速H][加速L][减速H][减速L]
         data = bytes([
@@ -539,8 +644,13 @@ class SerialComm(QObject):
             decel_raw & 0xFF
         ])
         
+        logger.info(f"[TRACE-PC] 构建数据包: {' '.join([f'{b:02X}' for b in data])}")
         logger.info(f"梯形速度移动舵机{servo_id}: 角度={angle:.1f}°, 速度={velocity:.1f}°/s, 加速度={acceleration:.1f}°/s²")
-        return self.send_servo_command(self.CMD_MOVE_TRAPEZOID, data)
+        
+        result = self.send_servo_command(self.CMD_MOVE_TRAPEZOID, data)
+        logger.info(f"[TRACE-PC] send_servo_command返回: {result}")
+        
+        return result
     
     def trajectory_add_point(self, servo_id: int, position: float,
                             velocity: float = 30.0,

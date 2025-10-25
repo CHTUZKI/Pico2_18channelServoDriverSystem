@@ -24,7 +24,7 @@
 #define CMD_MOVE_TRAPEZOID      0x04    // 单轴梯形速度控制
 #define CMD_MOVE_TRAP_MULTI     0x05    // 多轴梯形速度控制
 
-// 轨迹规划命令
+// 轨迹规划命令（旧版，保留兼容性）
 #define CMD_TRAJ_ADD_POINT      0x06    // 添加轨迹点
 #define CMD_TRAJ_START          0x07    // 开始执行轨迹
 #define CMD_TRAJ_STOP           0x08    // 停止执行轨迹
@@ -45,6 +45,15 @@
 #define CMD_SAVE_FLASH          0x30    // 保存参数到Flash
 #define CMD_LOAD_FLASH          0x31    // 从Flash加载参数
 #define CMD_SET_START_POSITIONS 0x33    // 设置起始位置
+
+// 运动缓冲区管理命令（新架构）
+#define CMD_ADD_MOTION_BLOCK    0x40    // 添加运动指令到缓冲区
+#define CMD_START_MOTION        0x41    // 开始执行缓冲区指令
+#define CMD_STOP_MOTION         0x42    // 停止执行
+#define CMD_PAUSE_MOTION        0x43    // 暂停执行
+#define CMD_RESUME_MOTION       0x44    // 恢复执行
+#define CMD_CLEAR_BUFFER        0x45    // 清空缓冲区
+#define CMD_GET_BUFFER_STATUS   0x46    // 查询缓冲区状态
 
 // 系统命令
 #define CMD_PING                0xFE    // 心跳/连接检测

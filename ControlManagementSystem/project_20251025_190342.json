@@ -1,37 +1,14 @@
 {
   "version": "1.0.0",
-  "created_time": "2025-10-25T19:03:46.400732",
-  "modified_time": "2025-10-25T19:03:46.400732",
+  "created_time": "2025-10-26T00:45:35.741349",
+  "modified_time": "2025-10-26T00:45:35.741349",
   "timeline_data": {
     "tracks": [
       {
         "motor_id": 0,
         "name": "舵机0",
         "loop_mode": "单次",
-        "components": [
-          {
-            "id": "c5cc1341-5c98-43ff-a8ec-0dee7ed6c5c6",
-            "type": "正转",
-            "motor_id": 0,
-            "start_time": 0.0,
-            "duration": 1.0,
-            "parameters": {
-              "target_angle": 180.0,
-              "speed_ms": 3000
-            }
-          },
-          {
-            "id": "36cc64ed-b591-4f14-9e7b-112dfb694a43",
-            "type": "正转",
-            "motor_id": 0,
-            "start_time": 1,
-            "duration": 1.0,
-            "parameters": {
-              "target_angle": 0.0,
-              "speed_ms": 3000
-            }
-          }
-        ]
+        "components": []
       },
       {
         "motor_id": 1,
@@ -39,25 +16,108 @@
         "loop_mode": "单次",
         "components": [
           {
-            "id": "f55d9843-dc4d-49ab-b219-00ca5738e778",
+            "id": "be3abada-b530-49e6-9abc-9aad946bbcc2",
             "type": "正转",
             "motor_id": 1,
             "start_time": 0.0,
             "duration": 1.0,
             "parameters": {
-              "target_angle": 180.0,
-              "speed_ms": 3000
+              "target_angle": 0.0,
+              "speed_ms": 1000,
+              "motion_mode": "trapezoid",
+              "velocity": 100.0,
+              "acceleration": 200.0,
+              "deceleration": 0.0
             }
           },
           {
-            "id": "64d8a3f1-25ce-4ccd-ae50-a0f91e40bcd8",
+            "id": "cf0cfafe-d0d4-4f14-a687-7edd8b04ec02",
             "type": "正转",
             "motor_id": 1,
             "start_time": 1,
             "duration": 1.0,
             "parameters": {
+              "target_angle": 90.0,
+              "speed_ms": 1000,
+              "motion_mode": "trapezoid",
+              "velocity": 80.0,
+              "acceleration": 150.0,
+              "deceleration": 0.0
+            }
+          },
+          {
+            "id": "98b80b24-3740-4620-b562-dc15ed159694",
+            "type": "正转",
+            "motor_id": 1,
+            "start_time": 2,
+            "duration": 1.0,
+            "parameters": {
+              "target_angle": 180.0,
+              "speed_ms": 1000,
+              "motion_mode": "trapezoid",
+              "velocity": 50.0,
+              "acceleration": 130.0,
+              "deceleration": 0.0
+            }
+          },
+          {
+            "id": "507ec764-3174-4da6-ab5d-b1ac013e50c3",
+            "type": "正转",
+            "motor_id": 1,
+            "start_time": 3,
+            "duration": 1.0,
+            "parameters": {
+              "target_angle": 80.0,
+              "speed_ms": 1000,
+              "motion_mode": "trapezoid",
+              "velocity": 30.0,
+              "acceleration": 60.0,
+              "deceleration": 0.0
+            }
+          },
+          {
+            "id": "4760ffb3-ec88-4b5a-8d14-a8f5e92fa0b6",
+            "type": "正转",
+            "motor_id": 1,
+            "start_time": 4,
+            "duration": 1.0,
+            "parameters": {
+              "target_angle": 60.0,
+              "speed_ms": 1000,
+              "motion_mode": "trapezoid",
+              "velocity": 30.0,
+              "acceleration": 60.0,
+              "deceleration": 0.0
+            }
+          },
+          {
+            "id": "bc5128f1-c5d6-4670-8f58-6a2134051625",
+            "type": "正转",
+            "motor_id": 1,
+            "start_time": 5,
+            "duration": 1.0,
+            "parameters": {
+              "target_angle": 40.0,
+              "speed_ms": 1000,
+              "motion_mode": "trapezoid",
+              "velocity": 30.0,
+              "acceleration": 60.0,
+              "deceleration": 0.0
+            }
+          },
+          {
+            "id": "24bfdea4-4b47-4ad3-9505-84ce9e8551a4",
+            "type": "正转",
+            "motor_id": 1,
+            "start_time": 6,
+            "duration": 1.0,
+            "parameters": {
               "target_angle": 0.0,
-              "speed_ms": 3000
+              "speed_ms": 1000,
+              "motion_mode": "trapezoid",
+              "velocity": 30.0,
+              "acceleration": 60.0,
+              "deceleration": 0.0
             }
           }
         ]
@@ -161,6 +221,6 @@
     ],
     "time_scale": 1.0,
     "time_unit": "秒",
-    "total_duration": 2.0
+    "total_duration": 7.0
   }
 }

@@ -145,5 +145,54 @@ void cmd_traj_clear(const protocol_frame_t *frame, command_result_t *result);
  */
 void cmd_traj_get_info(const protocol_frame_t *frame, command_result_t *result);
 
+/**
+ * @brief 处理ADD_MOTION_BLOCK命令（添加运动指令到缓冲区）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_add_motion_block(const protocol_frame_t *frame, command_result_t *result);
+
+/**
+ * @brief 处理START_MOTION命令（开始执行缓冲区指令）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_start_motion(const protocol_frame_t *frame, command_result_t *result);
+
+/**
+ * @brief 处理STOP_MOTION命令（停止执行）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_stop_motion(const protocol_frame_t *frame, command_result_t *result);
+
+/**
+ * @brief 处理PAUSE_MOTION命令（暂停执行）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_pause_motion(const protocol_frame_t *frame, command_result_t *result);
+
+/**
+ * @brief 处理RESUME_MOTION命令（恢复执行）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_resume_motion(const protocol_frame_t *frame, command_result_t *result);
+
+/**
+ * @brief 处理CLEAR_BUFFER命令（清空缓冲区）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_clear_buffer(const protocol_frame_t *frame, command_result_t *result);
+
+/**
+ * @brief 处理GET_BUFFER_STATUS命令（查询缓冲区状态）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_get_buffer_status(const protocol_frame_t *frame, command_result_t *result);
+
 #endif // COMMANDS_H
 

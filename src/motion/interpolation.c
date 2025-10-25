@@ -5,6 +5,7 @@
  */
 
 #include "motion/interpolation.h"
+#include "utils/usb_bridge.h"
 #include "pico/stdlib.h"
 #include <math.h>
 #include <string.h>
@@ -83,8 +84,33 @@ float interpolator_update(interpolator_t *interp, uint32_t delta_time) {
     if (ratio >= 1.0f) {
         interp->current_pos = interp->target_pos;
         interp->state = MOTION_STATE_REACHED;
+        
+        #if DEBUG_MOTION_SUMMARY
+        usb_bridge_printf("[MOTION] Motion COMPLETE: final_pos=%d deg\n", (int)interp->current_pos);
+        #endif
+        
         return interp->current_pos;
     }
+    
+    #if DEBUG_MOTION_PROGRESS
+    // 在关键进度点输出（25%, 50%, 75%）
+    static uint8_t last_progress_milestone = 0;
+    uint8_t current_milestone = (uint8_t)(ratio * 100);
+    
+    if ((current_milestone >= 25 && last_progress_milestone < 25) ||
+        (current_milestone >= 50 && last_progress_milestone < 50) ||
+        (current_milestone >= 75 && last_progress_milestone < 75)) {
+        int pos_int = (int)interp->current_pos;
+        usb_bridge_printf("[MOTION] Progress: %d%% pos=%ddeg elapsed=%dms\n",
+                         (current_milestone/25)*25, pos_int, (int)interp->elapsed_time);
+        last_progress_milestone = current_milestone;
+    }
+    
+    // 运动完成时重置
+    if (ratio < 0.1f) {
+        last_progress_milestone = 0;
+    }
+    #endif
     
     // 根据插值类型计算当前位置
     switch (interp->type) {
@@ -268,6 +294,15 @@ void interpolator_set_trapezoid_motion(interpolator_t *interp,
     // 计算总时间（秒）并转换为毫秒
     float total_time_sec = interp->t_accel + interp->t_const + interp->t_decel;
     interp->duration = (uint32_t)(total_time_sec * 1000.0f);
+    
+    #if DEBUG_MOTION_SUMMARY
+    // 运动曲线摘要
+    int t_a = (int)(interp->t_accel * 1000);
+    int t_c = (int)(interp->t_const * 1000);
+    int t_d = (int)(interp->t_decel * 1000);
+    usb_bridge_printf("[MOTION] Trapezoid profile: accel=%dms const=%dms decel=%dms total=%dms\n",
+                     t_a, t_c, t_d, (int)interp->duration);
+    #endif
 }
 
 float interpolate_trapezoid(float start, float end, float t_current,
@@ -288,22 +323,44 @@ float interpolate_trapezoid(float start, float end, float t_current,
     float s = 0.0f;  // 移动的距离
     
     // 判断当前处于哪个阶段
+    static uint8_t last_phase = 0xFF;
+    uint8_t current_phase;
+    
     if (t_current < t_accel) {
         // 阶段1：加速
+        current_phase = 1;
         // s(t) = 0.5 * a * t²
         float accel = v_max / t_accel;
         s = 0.5f * accel * t_current * t_current;
+        
+        #if DEBUG_MOTION_PROGRESS
+        if (last_phase != 1) {
+            int accel_int = (int)(accel * 10);
+            usb_bridge_printf("[MOTION-PHASE] >>> ACCEL: a=%d.%d deg/s^2, target_v=%d deg/s\n",
+                             accel_int/10, accel_int%10, (int)v_max);
+            last_phase = 1;
+        }
+        #endif
     }
     else if (t_current < t_accel + t_const) {
         // 阶段2：匀速
+        current_phase = 2;
         // s(t) = s_accel + v_max * (t - t_accel)
         float accel = v_max / t_accel;
         float s_accel = 0.5f * accel * t_accel * t_accel;
         float dt = t_current - t_accel;
         s = s_accel + v_max * dt;
+        
+        #if DEBUG_MOTION_PROGRESS
+        if (last_phase != 2) {
+            usb_bridge_printf("[MOTION-PHASE] >>> CONST: v=%d deg/s (cruising)\n", (int)v_max);
+            last_phase = 2;
+        }
+        #endif
     }
     else {
         // 阶段3：减速
+        current_phase = 3;
         // s(t) = s_accel + s_const + v_max * t' - 0.5 * d * t'²
         float accel = v_max / t_accel;
         float decel = v_max / t_decel;
@@ -311,6 +368,20 @@ float interpolate_trapezoid(float start, float end, float t_current,
         float s_const = v_max * t_const;
         float dt = t_current - t_accel - t_const;
         s = s_accel + s_const + v_max * dt - 0.5f * decel * dt * dt;
+        
+        #if DEBUG_MOTION_PROGRESS
+        if (last_phase != 3) {
+            int decel_int = (int)(decel * 10);
+            usb_bridge_printf("[MOTION-PHASE] >>> DECEL: d=%d.%d deg/s^2\n",
+                             decel_int/10, decel_int%10);
+            last_phase = 3;
+        }
+        #endif
+    }
+    
+    // 运动结束时重置阶段标记
+    if (t_current < 0.02f) {  // 接近开始时
+        last_phase = 0xFF;
     }
     
     // 计算位置（考虑方向）

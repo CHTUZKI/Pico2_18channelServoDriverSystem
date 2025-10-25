@@ -114,6 +114,35 @@ bool commands_process(const protocol_frame_t *frame, command_result_t *result) {
             cmd_traj_get_info(frame, result);
             break;
             
+        // 运动缓冲区管理命令
+        case CMD_ADD_MOTION_BLOCK:
+            cmd_add_motion_block(frame, result);
+            break;
+            
+        case CMD_START_MOTION:
+            cmd_start_motion(frame, result);
+            break;
+            
+        case CMD_STOP_MOTION:
+            cmd_stop_motion(frame, result);
+            break;
+            
+        case CMD_PAUSE_MOTION:
+            cmd_pause_motion(frame, result);
+            break;
+            
+        case CMD_RESUME_MOTION:
+            cmd_resume_motion(frame, result);
+            break;
+            
+        case CMD_CLEAR_BUFFER:
+            cmd_clear_buffer(frame, result);
+            break;
+            
+        case CMD_GET_BUFFER_STATUS:
+            cmd_get_buffer_status(frame, result);
+            break;
+            
         default:
             #if DEBUG_COMMAND
             CMD_DEBUG("[CMD] ERROR: Invalid command=0x%02X (not recognized)\n", frame->cmd);
