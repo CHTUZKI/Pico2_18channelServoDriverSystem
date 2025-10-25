@@ -1029,7 +1029,7 @@ class MainWindow(QMainWindow):
                 self.timeline_widget.motor_tracks[servo_id].set_enable_state(self.servo_enable_states[servo_id])
     
     def on_jog_plus_clicked(self, servo_id: int):
-        """Jog+按钮点击处理 - 手动前进10度"""
+        """Jog+按钮点击处理 - 手动后退10度"""
         if not self.is_connected:
             QMessageBox.warning(self, "警告", "请先连接串口")
             return
@@ -1042,8 +1042,8 @@ class MainWindow(QMainWindow):
         # 获取当前角度
         current_angle = self.servo_current_angles[servo_id]
         
-        # 发送jog+命令（增加10度）
-        success, new_angle = self.serial_comm.jog_servo(servo_id, current_angle, 10)
+        # 发送jog+命令（减少10度）
+        success, new_angle = self.serial_comm.jog_servo(servo_id, current_angle, -10)
         
         if success:
             # 更新当前角度
@@ -1053,7 +1053,7 @@ class MainWindow(QMainWindow):
             logger.error(f"舵机{servo_id} Jog+命令发送失败")
     
     def on_jog_minus_clicked(self, servo_id: int):
-        """Jog-按钮点击处理 - 手动后退10度"""
+        """Jog-按钮点击处理 - 手动前进10度"""
         if not self.is_connected:
             QMessageBox.warning(self, "警告", "请先连接串口")
             return
@@ -1066,8 +1066,8 @@ class MainWindow(QMainWindow):
         # 获取当前角度
         current_angle = self.servo_current_angles[servo_id]
         
-        # 发送jog-命令（减少10度）
-        success, new_angle = self.serial_comm.jog_servo(servo_id, current_angle, -10)
+        # 发送jog-命令（增加10度）
+        success, new_angle = self.serial_comm.jog_servo(servo_id, current_angle, 10)
         
         if success:
             # 更新当前角度

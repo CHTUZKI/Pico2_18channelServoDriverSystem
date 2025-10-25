@@ -151,6 +151,11 @@ bool servo_set_angle(uint8_t id, float angle) {
     // 转换为脉宽
     uint16_t pulse_us = servo_angle_to_pulse(id, angle);
     
+    #if DEBUG_SERVO
+    // 【调试】打印servo_id和pulse
+    usb_bridge_printf("[SERVO] set_angle: id=%d, angle=%.1f, pulse=%d\n", id, angle, pulse_us);
+    #endif
+    
     // 更新目标值
     g_servos[id].target_angle = angle;
     g_servos[id].target_pulse_us = pulse_us;

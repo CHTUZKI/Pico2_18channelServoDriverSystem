@@ -14,12 +14,19 @@
 
 // ==================== 调试开关 ====================
 #define DEBUG_ENABLE            1       // 主调试开关
-#define DEBUG_USB               0       // USB通信调试（关闭）
-#define DEBUG_MOTION            0       // 运动插值调试（关闭）
-#define DEBUG_SERVO             0       // 舵机角度转换调试（关闭）
-#define DEBUG_PWM               0       // PWM调试（查看是否真的输出PWM）
-#define DEBUG_SYSTEM            0       // 系统心跳调试（关闭）
-#define DEBUG_FLASH             0       // Flash存储调试（关闭）
+#define DEBUG_USB               0       // USB通信调试（USB数据收发、轮询）
+#define DEBUG_MOTION            0       // 运动插值调试（插值计算、运动状态）
+#define DEBUG_SERVO             0       // 舵机角度转换调试（角度转PWM、使能状态）
+#define DEBUG_PWM               0       // PWM调试（PWM输出、占空比计算）
+#define DEBUG_SYSTEM            0       // 系统心跳调试（LED、心跳计数）
+#define DEBUG_FLASH             0       // Flash存储调试（读写Flash、参数加载）
+#define DEBUG_PROTOCOL          0       // 协议解析调试（帧解析、CRC校验）
+#define DEBUG_COMMAND           0       // 命令处理调试（命令执行、响应发送）
+#define DEBUG_AO_COMM           0       // Communication AO调试（状态机、事件处理）
+#define DEBUG_AO_MOTION         0       // Motion AO调试（状态机、运动控制）
+#define DEBUG_AO_SYSTEM         0       // System AO调试（状态机、系统事件）
+#define DEBUG_STARTUP           0       // 启动流程调试（系统初始化、版本信息）
+#define DEBUG_PARAM             0       // 参数管理调试（参数保存、加载、验证）
 
 // ==================== 测试开关 ====================
 #define ENABLE_AUTO_TEST        0       // 自动测试模式（上电自动运行测试序列）

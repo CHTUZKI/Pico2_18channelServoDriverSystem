@@ -643,7 +643,7 @@ class MotorTrack(QWidget):
         # Jog- 按钮
         self.jog_minus_btn = QPushButton("◀")
         self.jog_minus_btn.setFixedSize(32, 24)
-        self.jog_minus_btn.setToolTip("手动后退10°")
+        self.jog_minus_btn.setToolTip("手动前进10°")
         self.jog_minus_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FF9800;
@@ -671,7 +671,7 @@ class MotorTrack(QWidget):
         # Jog+ 按钮
         self.jog_plus_btn = QPushButton("▶")
         self.jog_plus_btn.setFixedSize(32, 24)
-        self.jog_plus_btn.setToolTip("手动前进10°")
+        self.jog_plus_btn.setToolTip("手动后退10°")
         self.jog_plus_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;

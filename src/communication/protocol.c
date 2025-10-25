@@ -13,7 +13,7 @@
 #include <string.h>
 
 // 调试宏
-#if DEBUG_USB
+#if DEBUG_PROTOCOL
     #define PROTOCOL_DEBUG(fmt, ...) usb_bridge_printf("[PROTOCOL] " fmt, ##__VA_ARGS__)
 #else
     #define PROTOCOL_DEBUG(fmt, ...)

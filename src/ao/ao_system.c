@@ -22,7 +22,7 @@ Q_DEFINE_THIS_FILE
 
 // ==================== 调试宏 ====================
 // 使用USB Bridge避免Core 0直接访问USB
-#if DEBUG_SYSTEM
+#if DEBUG_AO_SYSTEM
     #define SYSTEM_DEBUG(...) usb_bridge_printf(__VA_ARGS__)
 #else
     #define SYSTEM_DEBUG(...) ((void)0)

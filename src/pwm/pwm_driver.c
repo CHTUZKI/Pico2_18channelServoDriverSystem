@@ -128,6 +128,15 @@ bool pwm_set_pulse(uint8_t channel, uint16_t pulse_us) {
     uint slice = g_pwm_channels[channel].slice;
     uint chan = g_pwm_channels[channel].channel;
     
+    #if DEBUG_PWM
+    // 【调试】打印前3个通道的详细信息
+    if (channel <= 2) {
+        usb_bridge_printf("[PWM] set_pulse: ch=%d, GPIO=%d, pulse=%d, slice=%d, chan=%c, enabled=%d\n",
+                          channel, g_pwm_channels[channel].gpio, pulse_us, slice, chan ? 'B' : 'A',
+                          g_pwm_channels[channel].enabled);
+    }
+    #endif
+    
     if (g_pwm_channels[channel].enabled) {
         pwm_set_chan_level(slice, chan, level);
         

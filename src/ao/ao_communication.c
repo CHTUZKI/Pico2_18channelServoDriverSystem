@@ -306,10 +306,18 @@ static void handle_move_single(const protocol_frame_t *frame) {
     MotionStartEvt *evt = Q_NEW(MotionStartEvt, MOTION_START_SIG);
     evt->axis_count = 1;
     evt->axis_ids[0] = servo_id;
-    evt->target_positions[0] = (float)angle / 100.0f;
     evt->duration_ms = duration;
     
+    // 【修复Bug】：填充完整的target_positions数组
+    // 将所有舵机的目标位置设为当前位置，只修改指定的servo_id
+    for (uint8_t i = 0; i < SERVO_COUNT; i++) {
+        evt->target_positions[i] = servo_get_angle(i);  // 保持当前角度
+    }
+    evt->target_positions[servo_id] = (float)angle / 100.0f;  // 只修改指定舵机的目标
+    
     #if DEBUG_USB
+    LOG_DEBUG("[CMD] target_positions[%d]=%.1f (others keep current)\n", 
+              servo_id, evt->target_positions[servo_id]);
     LOG_DEBUG("[CMD] Posting MOTION_START to AO_Motion\n");
     #endif
     QACTIVE_POST(AO_Motion, &evt->super, AO_Communication);

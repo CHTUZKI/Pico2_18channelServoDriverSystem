@@ -9,8 +9,16 @@
 #include "pwm/pwm_driver.h"
 #include "storage/param_manager.h"
 #include "utils/error_handler.h"
+#include "utils/usb_bridge.h"
 #include "config/config.h"
 #include <string.h>
+
+// 调试宏
+#if DEBUG_COMMAND
+    #define CMD_DEBUG(fmt, ...) usb_bridge_printf("[CMD] " fmt, ##__VA_ARGS__)
+#else
+    #define CMD_DEBUG(fmt, ...)
+#endif
 
 // 命令统计
 static uint32_t g_cmd_count = 0;
@@ -106,6 +114,11 @@ void cmd_move_single(const protocol_frame_t *frame, command_result_t *result) {
     
     // 转换角度（角度 × 100，例如90.5度 = 9050）
     float angle = angle_raw / 100.0f;
+    
+    #if DEBUG_COMMAND
+    // 【调试】打印servo_id和angle
+    CMD_DEBUG("MOVE_SINGLE: servo_id=%d, angle=%.1f\n", servo_id, angle);
+    #endif
     
     // 设置角度
     if (!servo_set_angle(servo_id, angle)) {
