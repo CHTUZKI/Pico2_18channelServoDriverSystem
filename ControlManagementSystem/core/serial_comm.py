@@ -4,6 +4,7 @@
 串口通信模块
 与Raspberry Pi Pico 2舵机控制器通信
 使用自定义协议（帧格式 + CRC-16校验）
+支持18个舵机（编号0-17）
 """
 
 import serial
@@ -189,7 +190,7 @@ class SerialComm(QObject):
         """控制单个舵机
         
         Args:
-            servo_id: 舵机ID (0-7)
+            servo_id: 舵机ID (0-17)
             angle: 目标角度 (0-180度)
             speed_ms: 运动时间 (毫秒)
         """

@@ -3,6 +3,7 @@
 """
 舵机命令生成器
 将时间轴数据转换为舵机控制命令序列
+支持18个舵机（编号0-17）
 """
 
 from typing import List, Dict, Any, Tuple
@@ -14,10 +15,10 @@ import time
 logger = logging.getLogger('servo_controller')
 
 class ServoCommander:
-    """舵机命令生成器 - 支持时间轴同步运动"""
+    """舵机命令生成器 - 支持18个舵机（编号0-17）时间轴同步运动"""
     
     def __init__(self):
-        self.servo_count = 18  # 18个舵机 (0-17)
+        self.servo_count = 18  # 18个舵机（编号0-17）
         self.current_positions = [90.0] * 18  # 当前各舵机位置（度），初始化为90度
     
     def generate_command_sequence(self, timeline_data: TimelineData) -> List[Dict[str, Any]]:
@@ -36,7 +37,7 @@ class ServoCommander:
         logger.info("开始生成舵机命令序列")
         
         # 重置当前位置
-        self.current_positions = [90.0] * 8
+        self.current_positions = [90.0] * 18
         
         # 收集所有事件
         all_events = []
@@ -244,7 +245,7 @@ class ServoCommander:
         sequence = self.generate_command_sequence(timeline_data)
         
         lines = []
-        lines.append("; 8轴舵机时间轴控制程序")
+        lines.append("; 18通道舵机时间轴控制程序 (舵机编号0-17)")
         lines.append("; 由舵机控制上位机自动生成")
         lines.append("")
         lines.append("; 协议: 自定义帧格式 + CRC-16校验")

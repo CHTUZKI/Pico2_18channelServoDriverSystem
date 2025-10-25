@@ -87,7 +87,7 @@ class ComponentEditDialog(QDialog):
         
         # 舵机选择
         motor_layout = QFormLayout()
-        self.motor_label = QLabel(f"舵机 {self.component.motor_id + 1}")
+        self.motor_label = QLabel(f"舵机{self.component.motor_id}")
         self.motor_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #2c3e50;")
         motor_layout.addRow("舵机:", self.motor_label)
         
@@ -550,7 +550,7 @@ class MotionTableDialog(QDialog):
         
         for motor_id in range(servo_count):
             track_data = self.motion_data.get(motor_id, {})
-            motor_name = track_data.get('name', f'舵机{motor_id + 1}')
+            motor_name = track_data.get('name', f'舵机{motor_id}')
             components = track_data.get('components', [])
             
             text += f"【{motor_name}】\n"

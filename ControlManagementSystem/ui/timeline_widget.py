@@ -3,6 +3,7 @@
 """
 时间轴组件
 主要的时间轴可视化控件
+支持18个舵机（编号0-17）
 """
 
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, 
@@ -361,7 +362,7 @@ class TimelineWidget(QWidget):
         if track:
             logger.info(f"舵机{motor_id}轨道现在有{len(track.components)}个部件")
         
-        logger.info(f"添加部件: {component_type.value} 到舵机{motor_id+1} 时间{component.start_time:.2f}s")
+        logger.info(f"添加部件: {component_type.value} 到舵机{motor_id} 时间{component.start_time:.2f}s")
     
     def _resolve_component_overlap(self, new_component, motor_id):
         """解决部件重叠问题"""
@@ -497,7 +498,7 @@ class TimelineWidget(QWidget):
         # 找到包含此部件的轨道
         for motor_id, motor_track in self.motor_tracks.items():
             if motor_track.remove_component(component_id):
-                logger.info(f"从舵机{motor_id + 1}删除部件: {component.type.value}")
+                logger.info(f"从舵机{motor_id}删除部件: {component.type.value}")
                 break
         
         # 清除选择
@@ -532,7 +533,7 @@ class TimelineWidget(QWidget):
             # 解决重叠问题
             component = self._resolve_component_overlap(component, target_motor_id)
             target_track.add_component_widget(component)
-            logger.info(f"部件从舵机{source_motor_id + 1}移动到舵机{target_motor_id + 1}")
+            logger.info(f"部件从舵机{source_motor_id}移动到舵机{target_motor_id}")
         else:
             logger.warning(f"目标轨道不存在: {target_motor_id}")
     
@@ -589,7 +590,7 @@ class TimelineWidget(QWidget):
             else:
                 # 空轨道
                 motion_data[motor_id] = {
-                    'name': f'舵机{motor_id + 1}',
+                    'name': f'舵机{motor_id}',
                     'loop_mode': '单次',
                     'components': []
                 }

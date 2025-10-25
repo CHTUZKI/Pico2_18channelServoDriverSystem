@@ -1000,8 +1000,8 @@ class MoveComponentDialog(QDialog):
         
         # 目标电机选择
         self.motor_combo = QComboBox()
-        for i in range(8):
-            self.motor_combo.addItem(f"电机 {i + 1} (轴 {'XYZABCUV'[i]})")
+        for i in range(18):
+            self.motor_combo.addItem(f"舵机{i}")
         target_layout.addRow("目标电机:", self.motor_combo)
         
         # 目标起始时间
@@ -1127,7 +1127,7 @@ class MotionTableDialog(QDialog):
         layout = QVBoxLayout()
         
         # 标题
-        title_label = QLabel("8轴电机运动逻辑表")
+        title_label = QLabel("18通道舵机运动逻辑表")
         title_label.setStyleSheet("""
             QLabel {
                 font-size: 18px;

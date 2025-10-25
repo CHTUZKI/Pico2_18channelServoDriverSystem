@@ -71,7 +71,7 @@ class MainWindow(QMainWindow):
         self.setup_logging()
         
         # 设置窗口属性
-        self.setWindowTitle("8轴舵机时间轴控制上位机 v1.0.0")
+        self.setWindowTitle("18通道舵机时间轴控制上位机 v1.0.0")
         self.setMinimumSize(1200, 800)
         self.resize(1400, 900)
         
@@ -353,7 +353,7 @@ class MainWindow(QMainWindow):
         
         # 舵机位置标签
         self.servo_labels = {}
-        servo_names = ['舵机1', '舵机2', '舵机3', '舵机4', '舵机5', '舵机6', '舵机7', '舵机8']
+        servo_names = [f'舵机{i}' for i in range(18)]  # 舵机0-17
         for servo in servo_names:
             label = QLabel("0.00°")
             label.setStyleSheet("color: #333; font-family: monospace;")
@@ -798,9 +798,9 @@ class MainWindow(QMainWindow):
     def show_about(self):
         """显示关于对话框"""
         QMessageBox.about(self, "关于", 
-            "8轴舵机时间轴控制上位机 v1.0.0\n\n"
+            "18通道舵机时间轴控制上位机 v1.0.0\n\n"
             "基于PyQt5开发的可视化舵机控制软件\n"
-            "支持Raspberry Pi Pico 2 + 8个PWM舵机\n\n"
+            "支持Raspberry Pi Pico 2 + 18个PWM舵机（编号0-17）\n\n"
             "开发时间: 2025年"
         )
     
@@ -1011,10 +1011,10 @@ class MainWindow(QMainWindow):
             # 发送使能/禁用命令
             if self.servo_enable_states[servo_id]:
                 self.serial_comm.enable_servo(servo_id)
-                logger.info(f"使能舵机 {servo_id + 1}")
+                logger.info(f"使能舵机{servo_id}")
             else:
                 self.serial_comm.disable_servo(servo_id)
-                logger.info(f"禁用舵机 {servo_id + 1}")
+                logger.info(f"禁用舵机{servo_id}")
             
             # 更新UI显示
             if servo_id in self.timeline_widget.motor_tracks:
@@ -1203,7 +1203,7 @@ class MainWindow(QMainWindow):
     
     def update_window_title(self):
         """更新窗口标题"""
-        title = "18轴舵机时间轴控制上位机 v1.0.0"
+        title = "18通道舵机时间轴控制上位机 v1.0.0"
         if self.project_manager.get_current_project_path():
             filename = os.path.basename(self.project_manager.get_current_project_path())
             title += f" - {filename}"
@@ -1383,7 +1383,7 @@ class MainWindow(QMainWindow):
         
         for motor_id in range(servo_count):
             track_data = motion_data.get(motor_id, {})
-            motor_name = track_data.get('name', f'舵机{motor_id + 1}')
+            motor_name = track_data.get('name', f'舵机{motor_id}')
             loop_mode = track_data.get('loop_mode', '单次')
             components = track_data.get('components', [])
             
@@ -1425,12 +1425,12 @@ class MainWindow(QMainWindow):
         # 添加时间轴总览
         text += "【时间轴总览】\n"
         all_components = []
-        for motor_id in range(8):
+        for motor_id in range(18):
             track_data = motion_data.get(motor_id, {})
             components = track_data.get('components', [])
             for comp in components:
                 comp['motor_id'] = motor_id
-                comp['motor_name'] = track_data.get('name', f'舵机{motor_id + 1}')
+                comp['motor_name'] = track_data.get('name', f'舵机{motor_id}')
                 all_components.append(comp)
         
         # 按时间排序

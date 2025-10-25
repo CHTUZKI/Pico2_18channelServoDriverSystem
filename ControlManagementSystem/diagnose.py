@@ -8,7 +8,7 @@ import sys
 import os
 
 print("=" * 60)
-print("8轴电机时间轴控制上位机 - 诊断工具")
+print("18通道舵机时间轴控制上位机 - 诊断工具")
 print("=" * 60)
 print()
 

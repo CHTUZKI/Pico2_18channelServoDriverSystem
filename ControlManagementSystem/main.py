@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-18轴舵机时间轴控制上位机
+18通道舵机时间轴控制上位机
 主程序入口
+支持18个舵机（编号0-17）独立控制
 """
 
 import sys
@@ -21,7 +22,7 @@ def main():
     """主函数"""
     # 创建应用程序
     app = QApplication(sys.argv)
-    app.setApplicationName("18轴舵机时间轴控制上位机")
+    app.setApplicationName("18通道舵机时间轴控制上位机")
     app.setApplicationVersion("1.0.0")
     app.setOrganizationName("ServoController")
      

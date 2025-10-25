@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 时间轴数据模型
+支持18个舵机（编号0-17）
 """
 
 from typing import List, Dict, Any, Optional
@@ -99,12 +100,9 @@ class TimelineData:
         self._initialize_tracks()
     
     def _initialize_tracks(self):
-        """初始化18个舵机轨道"""
-        servo_names = ['舵机1', '舵机2', '舵机3', '舵机4', '舵机5', '舵机6', '舵机7', '舵机8',
-                      '舵机9', '舵机10', '舵机11', '舵机12', '舵机13', '舵机14', '舵机15', '舵机16',
-                      '舵机17', '舵机18']
-        for i, name in enumerate(servo_names):
-            track = MotorTrack(motor_id=i, name=name)
+        """初始化18个舵机轨道（编号0-17）"""
+        for i in range(18):
+            track = MotorTrack(motor_id=i, name=f'舵机{i}')
             self.tracks.append(track)
     
     def get_track(self, motor_id: int) -> Optional[MotorTrack]:

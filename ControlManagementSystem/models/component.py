@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 部件数据模型
+支持18个舵机（编号0-17）
 """
 
 from enum import Enum
@@ -22,7 +23,7 @@ class Component:
     def __init__(self, component_type: ComponentType, motor_id: int = 0):
         self.id = str(uuid.uuid4())
         self.type = component_type
-        self.motor_id = motor_id  # 电机ID (0-7 对应 X/Y/Z/A/B/C/U/V)
+        self.motor_id = motor_id  # 舵机ID (0-17)
         self.start_time = 0.0  # 起始时间（秒）
         self.duration = 1.0    # 持续时间（秒）
         self.parameters = {}   # 参数字典

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-电机轨道组件
-时间轴中的单个电机轨道
+舵机轨道组件
+时间轴中的单个舵机轨道（舵机编号0-17）
 """
 
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QLabel, QComboBox, 
