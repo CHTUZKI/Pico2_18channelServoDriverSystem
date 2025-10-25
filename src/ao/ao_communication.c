@@ -16,6 +16,7 @@
 #include "communication/crc16.h"
 #include "servo/servo_control.h"
 #include "servo/servo_manager.h"
+#include "storage/param_manager.h"
 #include "utils/ring_buffer.h"
 #include "utils/usb_bridge.h"  // 使用USB桥接器代替直接访问USB
 #include <stdio.h>
@@ -39,6 +40,7 @@ static void handle_move_all(const protocol_frame_t *frame);
 static void handle_get_single(const protocol_frame_t *frame);
 static void handle_get_all(const protocol_frame_t *frame);
 static void handle_enable(const protocol_frame_t *frame);
+static void handle_reset_factory(const protocol_frame_t *frame);
 static void handle_ping(const protocol_frame_t *frame);
 
 // ==================== 状态处理函数声明 ====================
@@ -155,6 +157,9 @@ static QState AO_Communication_active(AO_Communication_t * const me, QEvt const 
                                         QACTIVE_POST(AO_System, &flash_load, me);
                                     }
                                     send_response(frame->id, frame->cmd, RESP_OK, NULL, 0);
+                                    break;
+                                case CMD_RESET_FACTORY:
+                                    handle_reset_factory(frame);
                                     break;
                                 case CMD_PING:
                                     handle_ping(frame);
@@ -370,6 +375,28 @@ static void handle_enable(const protocol_frame_t *frame) {
     
     servo_manager_enable(servo_id, enable);
     send_response(frame->id, frame->cmd, RESP_OK, NULL, 0);
+}
+
+static void handle_reset_factory(const protocol_frame_t *frame) {
+    #if DEBUG_USB
+    LOG_DEBUG("[CMD] RESET_FACTORY handler called\n");
+    #endif
+    
+    // 恢复出厂设置
+    bool reset_ok = param_manager_reset();
+    
+    // 设置所有舵机到90度中位
+    float center_angles[SERVO_COUNT];
+    for (int i = 0; i < SERVO_COUNT; i++) {
+        center_angles[i] = 90.0f;
+    }
+    bool servo_ok = servo_set_all_angles(center_angles);
+    
+    if (reset_ok && servo_ok) {
+        send_response(frame->id, frame->cmd, RESP_OK, NULL, 0);
+    } else {
+        send_response(frame->id, frame->cmd, RESP_ERROR, NULL, 0);
+    }
 }
 
 static void handle_ping(const protocol_frame_t *frame) {
