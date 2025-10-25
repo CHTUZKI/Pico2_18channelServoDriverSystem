@@ -44,9 +44,10 @@ static const uint8_t SERVO_PINS[18] = {
 // USB使用硬件接口，无需GPIO定义
 
 // ==================== 预留扩展引脚 ====================
-// GPIO 18-24: 可用于传感器、调试等
-#define PIN_DEBUG_TX        18      // 调试串口TX (可选)
-#define PIN_DEBUG_RX        19      // 调试串口RX (可选)
+// GPIO 20-24: 可用于传感器、调试等
+// 注意：GPIO 18-19 已被舵机16-17占用
+#define PIN_DEBUG_TX        20      // 调试串口TX (可选)
+#define PIN_DEBUG_RX        21      // 调试串口RX (可选)
 
 // GPIO 26-28: ADC功能引脚
 #define PIN_ADC0            26      // ADC通道0 (电源监测)
