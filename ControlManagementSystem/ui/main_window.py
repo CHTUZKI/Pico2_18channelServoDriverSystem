@@ -188,9 +188,9 @@ class MainWindow(QMainWindow):
         
         tools_menu.addSeparator()
         
-        save_flash_action = QAction("保存位置到Flash(&V)", self)
-        save_flash_action.triggered.connect(self.save_to_flash)
-        tools_menu.addAction(save_flash_action)
+        set_start_pos_action = QAction("设置起始位置(&S)", self)
+        set_start_pos_action.triggered.connect(self.set_start_positions)
+        tools_menu.addAction(set_start_pos_action)
         
         reset_factory_action = QAction("恢复出厂设置(&F)", self)
         reset_factory_action.triggered.connect(self.reset_factory)
@@ -1278,28 +1278,41 @@ class MainWindow(QMainWindow):
             })
             self.config_manager.save()
     
-    def save_to_flash(self):
-        """保存当前舵机位置到Flash"""
+    def set_start_positions(self):
+        """设置起始位置"""
         if not self.is_connected:
             QMessageBox.warning(self, "警告", "请先连接设备！")
             return
         
-        # 确认对话框
-        reply = QMessageBox.question(
-            self, 
-            "保存位置", 
-            "确定要保存当前所有舵机的位置到Flash吗？\n下次上电将恢复到这些位置。",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
+        # 导入对话框
+        from ui.dialogs import StartPositionsDialog
         
-        if reply == QMessageBox.Yes:
-            if self.serial_comm.save_to_flash():
-                QMessageBox.information(self, "成功", "位置已保存到Flash！")
-                logger.info("位置已保存到Flash")
-            else:
-                QMessageBox.critical(self, "失败", "保存位置失败！")
-                logger.error("保存位置失败")
+        # 打开设置对话框
+        dialog = StartPositionsDialog(parent=self)
+        if dialog.exec_() == QDialog.Accepted:
+            angles = dialog.get_angles()
+            
+            # 确认对话框
+            reply = QMessageBox.question(
+                self, 
+                "确认设置", 
+                "确定要将这些角度保存为起始位置吗？\n"
+                "重启后所有舵机将恢复到设置的位置。",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply == QMessageBox.Yes:
+                if self.serial_comm.set_start_positions(angles):
+                    QMessageBox.information(
+                        self, 
+                        "成功", 
+                        "起始位置已保存到Flash！\n重启后生效。"
+                    )
+                    logger.info("起始位置已保存到Flash")
+                else:
+                    QMessageBox.critical(self, "失败", "保存失败！")
+                    logger.error("保存起始位置失败")
     
     def reset_factory(self):
         """恢复出厂设置"""
@@ -1311,8 +1324,9 @@ class MainWindow(QMainWindow):
         reply = QMessageBox.warning(
             self,
             "恢复出厂设置",
-            "警告：此操作将清除Flash中的所有参数和位置数据！\n"
-            "所有舵机将恢复到默认校准参数和90度中位。\n\n"
+            "警告：此操作将恢复出厂设置！\n"
+            "- 所有舵机起始位置 → 90度\n"
+            "- 校准参数 → 默认值\n\n"
             "确定要继续吗？",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No

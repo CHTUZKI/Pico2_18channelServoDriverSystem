@@ -794,3 +794,153 @@ class DefaultParametersDialog(QDialog):
         self.config_manager.save()
         
         super().accept()
+
+
+class StartPositionsDialog(QDialog):
+    """设置起始位置对话框"""
+    
+    def __init__(self, current_angles=None, parent=None):
+        super().__init__(parent)
+        self.angles = current_angles if current_angles else [90.0] * 18
+        self.init_ui()
+    
+    def init_ui(self):
+        """初始化UI"""
+        self.setWindowTitle("设置舵机起始位置")
+        self.resize(600, 500)
+        
+        # 样式
+        self.setStyleSheet("""
+            QDialog {
+                background-color: white;
+                font-size: 12px;
+            }
+            QLabel {
+                color: #333;
+                font-size: 12px;
+            }
+            QPushButton {
+                padding: 6px 15px;
+                font-size: 12px;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+                background-color: #f0f0f0;
+            }
+            QPushButton:hover {
+                background-color: #e0e0e0;
+            }
+            QDoubleSpinBox {
+                padding: 3px;
+                font-size: 12px;
+            }
+        """)
+        
+        layout = QVBoxLayout()
+        
+        # 说明
+        info_label = QLabel("设置每个舵机的起始位置（重启后生效）")
+        info_label.setStyleSheet("font-weight: bold; font-size: 13px; color: #0066cc;")
+        layout.addWidget(info_label)
+        
+        # 快捷设置按钮
+        quick_layout = QHBoxLayout()
+        
+        use_current_btn = QPushButton("使用当前位置")
+        use_current_btn.clicked.connect(self.use_current_positions)
+        quick_layout.addWidget(use_current_btn)
+        
+        set_90_btn = QPushButton("全部90度")
+        set_90_btn.clicked.connect(lambda: self.set_all_angles(90.0))
+        quick_layout.addWidget(set_90_btn)
+        
+        set_0_btn = QPushButton("全部0度")
+        set_0_btn.clicked.connect(lambda: self.set_all_angles(0.0))
+        quick_layout.addWidget(set_0_btn)
+        
+        set_180_btn = QPushButton("全部180度")
+        set_180_btn.clicked.connect(lambda: self.set_all_angles(180.0))
+        quick_layout.addWidget(set_180_btn)
+        
+        quick_layout.addStretch()
+        layout.addLayout(quick_layout)
+        
+        # 角度输入区域（2列布局）
+        angles_group = QGroupBox("舵机角度设置")
+        angles_layout = QHBoxLayout()
+        
+        # 创建18个输入框
+        self.angle_spins = []
+        
+        # 左列（舵机0-8）
+        left_form = QFormLayout()
+        for i in range(9):
+            spin = QDoubleSpinBox()
+            spin.setRange(0.0, 180.0)
+            spin.setValue(self.angles[i])
+            spin.setDecimals(1)
+            spin.setSingleStep(1.0)
+            spin.setSuffix(" °")
+            self.angle_spins.append(spin)
+            left_form.addRow(f"舵机{i}:", spin)
+        angles_layout.addLayout(left_form)
+        
+        # 右列（舵机9-17）
+        right_form = QFormLayout()
+        for i in range(9, 18):
+            spin = QDoubleSpinBox()
+            spin.setRange(0.0, 180.0)
+            spin.setValue(self.angles[i])
+            spin.setDecimals(1)
+            spin.setSingleStep(1.0)
+            spin.setSuffix(" °")
+            self.angle_spins.append(spin)
+            right_form.addRow(f"舵机{i}:", spin)
+        angles_layout.addLayout(right_form)
+        
+        angles_group.setLayout(angles_layout)
+        layout.addWidget(angles_group)
+        
+        # 警告提示
+        warning_label = QLabel("⚠️ 注意：设置后重启生效，请确保设置合理以避免机械冲突！")
+        warning_label.setStyleSheet("color: #ff6600; font-weight: bold;")
+        layout.addWidget(warning_label)
+        
+        # 按钮
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        
+        ok_btn = QPushButton("确定")
+        ok_btn.clicked.connect(self.accept)
+        ok_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        button_layout.addWidget(ok_btn)
+        
+        cancel_btn = QPushButton("取消")
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(cancel_btn)
+        
+        layout.addLayout(button_layout)
+        
+        self.setLayout(layout)
+    
+    def use_current_positions(self):
+        """使用当前位置（从父窗口获取）"""
+        parent = self.parent()
+        if hasattr(parent, 'get_current_servo_angles'):
+            current = parent.get_current_servo_angles()
+            if current and len(current) == 18:
+                for i, angle in enumerate(current):
+                    self.angle_spins[i].setValue(angle)
+                QMessageBox.information(self, "提示", "已读取当前舵机位置")
+            else:
+                QMessageBox.warning(self, "警告", "无法读取当前舵机位置")
+        else:
+            QMessageBox.warning(self, "警告", "当前功能暂不可用")
+    
+    def set_all_angles(self, angle):
+        """设置所有舵机到指定角度"""
+        for spin in self.angle_spins:
+            spin.setValue(angle)
+    
+    def get_angles(self):
+        """获取设置的角度列表"""
+        return [spin.value() for spin in self.angle_spins]

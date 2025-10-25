@@ -36,6 +36,7 @@
 #define CMD_SAVE_FLASH          0x30    // 保存参数到Flash
 #define CMD_LOAD_FLASH          0x31    // 从Flash加载参数
 #define CMD_RESET_FACTORY       0x32    // 恢复出厂设置
+#define CMD_SET_START_POSITIONS 0x33    // 设置起始位置
 
 // 系统命令
 #define CMD_PING                0xFE    // 心跳/连接检测

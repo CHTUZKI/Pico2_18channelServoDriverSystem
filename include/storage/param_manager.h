@@ -64,5 +64,12 @@ bool param_manager_has_saved_positions(void);
  */
 bool param_manager_reset(void);
 
+/**
+ * @brief 设置起始位置（从上位机设置所有舵机的起始角度）
+ * @param positions 18个舵机的角度数组
+ * @return true 成功, false 失败
+ */
+bool param_manager_set_start_positions(const float *positions);
+
 #endif // PARAM_MANAGER_H
 

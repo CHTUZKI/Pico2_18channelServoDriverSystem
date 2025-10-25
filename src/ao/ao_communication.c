@@ -41,6 +41,7 @@ static void handle_get_single(const protocol_frame_t *frame);
 static void handle_get_all(const protocol_frame_t *frame);
 static void handle_enable(const protocol_frame_t *frame);
 static void handle_reset_factory(const protocol_frame_t *frame);
+static void handle_set_start_positions(const protocol_frame_t *frame);
 static void handle_ping(const protocol_frame_t *frame);
 
 // ==================== 状态处理函数声明 ====================
@@ -160,6 +161,9 @@ static QState AO_Communication_active(AO_Communication_t * const me, QEvt const 
                                     break;
                                 case CMD_RESET_FACTORY:
                                     handle_reset_factory(frame);
+                                    break;
+                                case CMD_SET_START_POSITIONS:
+                                    handle_set_start_positions(frame);
                                     break;
                                 case CMD_PING:
                                     handle_ping(frame);
@@ -393,6 +397,36 @@ static void handle_reset_factory(const protocol_frame_t *frame) {
     bool servo_ok = servo_set_all_angles(center_angles);
     
     if (reset_ok && servo_ok) {
+        send_response(frame->id, frame->cmd, RESP_OK, NULL, 0);
+    } else {
+        send_response(frame->id, frame->cmd, RESP_ERROR, NULL, 0);
+    }
+}
+
+static void handle_set_start_positions(const protocol_frame_t *frame) {
+    #if DEBUG_USB
+    LOG_DEBUG("[CMD] SET_START_POSITIONS handler called\n");
+    #endif
+    
+    // 数据格式：[angle0_H][angle0_L] ... [angle17_H][angle17_L]
+    // 总长度：18 * 2 = 36字节
+    if (frame->len < 36) {
+        #if DEBUG_USB
+        LOG_DEBUG("[CMD] Invalid len: %d < 36\n", frame->len);
+        #endif
+        send_response(frame->id, frame->cmd, RESP_INVALID_PARAM, NULL, 0);
+        return;
+    }
+    
+    // 解析18个角度
+    float angles[SERVO_COUNT];
+    for (int i = 0; i < SERVO_COUNT; i++) {
+        uint16_t angle_x100 = (frame->data[i*2] << 8) | frame->data[i*2 + 1];
+        angles[i] = angle_x100 / 100.0f;
+    }
+    
+    // 保存到Flash
+    if (param_manager_set_start_positions(angles)) {
         send_response(frame->id, frame->cmd, RESP_OK, NULL, 0);
     } else {
         send_response(frame->id, frame->cmd, RESP_ERROR, NULL, 0);

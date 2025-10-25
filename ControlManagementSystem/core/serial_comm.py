@@ -30,6 +30,7 @@ class SerialComm(QObject):
     CMD_SAVE_FLASH = 0x30
     CMD_LOAD_FLASH = 0x31
     CMD_RESET_FACTORY = 0x32
+    CMD_SET_START_POSITIONS = 0x33
     CMD_PING = 0xFE
     CMD_ESTOP = 0xFF
     
@@ -293,6 +294,36 @@ class SerialComm(QObject):
         """恢复出厂设置（清除Flash参数和位置，恢复默认值）"""
         logger.info("恢复出厂设置")
         return self.send_servo_command(self.CMD_RESET_FACTORY)
+    
+    def set_start_positions(self, angles: list) -> bool:
+        """设置起始位置
+        
+        Args:
+            angles: 18个舵机的角度列表 (0-180度)
+        
+        Returns:
+            bool: 是否成功
+        """
+        if len(angles) != 18:
+            logger.error(f"角度列表长度错误: {len(angles)}, 需要18个")
+            return False
+        
+        logger.info("设置起始位置")
+        
+        # 构建数据：[angle0_H][angle0_L] ... [angle17_H][angle17_L]
+        data = bytearray()
+        for angle in angles:
+            # 角度 × 100，例如90.5度 = 9050
+            angle_x100 = int(angle * 100)
+            if angle_x100 < 0:
+                angle_x100 = 0
+            if angle_x100 > 18000:
+                angle_x100 = 18000
+            
+            data.append((angle_x100 >> 8) & 0xFF)  # 高字节
+            data.append(angle_x100 & 0xFF)          # 低字节
+        
+        return self.send_servo_command(self.CMD_SET_START_POSITIONS, bytes(data))
     
     def _read_loop(self):
         """读取线程主循环"""

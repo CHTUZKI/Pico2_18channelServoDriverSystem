@@ -205,16 +205,16 @@ bool param_manager_reset(void) {
         g_current_params.calibrations[i].offset_us = 0;
         g_current_params.calibrations[i].reverse = false;
         
-        // 清除保存的位置
+        // 设置起始位置为90度
         g_current_params.saved_positions[i] = 90.0f;
     }
     
-    // 2. 标记位置数据无效
-    g_current_params.positions_valid = false;
+    // 2. 标记位置数据有效（这样上电会恢复到90度）
+    g_current_params.positions_valid = true;
     FLASH_DEBUG("Default calibration: Pulse[%d-%d]us, Offset=0, Reverse=0\n",
         SERVO_MIN_PULSE_US, SERVO_MAX_PULSE_US);
-    FLASH_DEBUG("Default position: 90.0 deg\n");
-    FLASH_DEBUG("Position data marked invalid\n");
+    FLASH_DEBUG("Default start position: 90.0 deg (all servos)\n");
+    FLASH_DEBUG("Position data marked VALID\n");
     
     // 3. 保存到Flash
     bool flash_ok = flash_save_params(&g_current_params);
@@ -226,5 +226,36 @@ bool param_manager_reset(void) {
     FLASH_DEBUG("=====================\n\n");
     
     return flash_ok && apply_ok;
+}
+
+bool param_manager_set_start_positions(const float *positions) {
+    if (positions == NULL) {
+        return false;
+    }
+    
+    FLASH_DEBUG("=== Set Start Positions ===\n");
+    
+    // 设置所有舵机的起始位置
+    for (int i = 0; i < SERVO_COUNT; i++) {
+        // 限制角度范围 0-180度
+        float angle = positions[i];
+        if (angle < 0.0f) angle = 0.0f;
+        if (angle > 180.0f) angle = 180.0f;
+        
+        g_current_params.saved_positions[i] = angle;
+        
+        int angle_int = (int)(angle * 10);
+        FLASH_DEBUG("Servo%d: %d.%d deg\n", i, angle_int / 10, angle_int % 10);
+    }
+    
+    // 标记位置数据有效
+    g_current_params.positions_valid = true;
+    
+    // 保存到Flash
+    bool result = flash_save_params(&g_current_params);
+    FLASH_DEBUG("Flash save: %s\n", result ? "OK" : "FAIL");
+    FLASH_DEBUG("===========================\n\n");
+    
+    return result;
 }
 

@@ -1,0 +1,75 @@
+[16:00:00.536] ← RX: ========================================
+[16:00:00.536] ← RX: [CORE1] USB Bridge Started
+[16:00:00.547] ← RX: [CORE1] Taking over USB I/O operations
+[16:00:00.548] ← RX: [CORE1] Core 0 -> TX Buffer -> Core 1 -> USB
+[16:00:00.549] ← RX: [CORE1] USB -> Core 1 -> RX Buffer -> Core 0
+[16:00:00.558] ← RX: [CORE1] PWM monitoring enabled
+[16:00:00.559] ← RX: ========================================
+[16:00:01.940] ← RX: [INFO][5000]
+[16:00:01.941] ← RX: ========== System Starting ==========
+[16:00:01.992] ← RX: [INFO][5050] 18-Channel Servo Controller v1.0.0
+[16:00:02.034] ← RX: [INFO][5100] Platform: RP2350 @ 150MHz
+[16:00:02.088] ← RX: [INFO][5150] Framework: QP/C (QV Kernel)
+[16:00:02.142] ← RX: [INFO][5201] =====================================
+[16:00:02.185] ← RX: [INFO][5251] [INIT] Starting hardware...
+[16:00:02.239] ← RX: [FLASH] === Param Manager Init ===
+[16:00:02.239] ← RX: [FLASH] Flash loaded successfully
+[16:00:02.240] ← RX: [FLASH] Magic: 0x53565250
+[16:00:02.240] ← RX: [FLASH] Version: 1
+[16:00:02.249] ← RX: [FLASH] Servo count: 18
+[16:00:02.249] ← RX: [FLASH] Checksum: 0x324E
+[16:00:02.250] ← RX: [FLASH]
+[16:00:02.250] ← RX: --- Calibration Params ---
+[16:00:02.260] ← RX: [FLASH] Servo0: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.260] ← RX: [FLASH] Servo1: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.270] ← RX: [FLASH] Servo2: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.272] ← RX: [FLASH] Servo3: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.273] ← RX: [FLASH] Servo4: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.281] ← RX: [FLASH] Servo5: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.282] ← RX: [FLASH] Servo6: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.293] ← RX: [FLASH] Servo7: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.293] ← RX: [FLASH] Servo8: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.303] ← RX: [FLASH] Servo9: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.304] ← RX: [FLASH] Servo10: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.314] ← RX: [FLASH] Servo11: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.314] ← RX: [FLASH] Servo12: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.325] ← RX: [FLASH] Servo13: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.325] ← RX: [FLASH] Servo14: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.325] ← RX: [FLASH] Servo15: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.336] ← RX: [FLASH] Servo16: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.336] ← RX: [FLASH] Servo17: Pulse[500-2500]us, Offset=0, Reverse=0
+[16:00:02.336] ← RX: [FLASH]
+[16:00:02.346] ← RX: --- Saved Positions (Valid: 0) ---
+[16:00:02.347] ← RX: [FLASH] No valid position data
+[16:00:02.347] ← RX: [FLASH] ==========================
+[16:00:02.348] ← RX: [FLASH]
+[16:00:02.358] ← RX: === Load Positions from Flash ===
+[16:00:02.359] ← RX: [FLASH] Position data invalid
+[16:00:02.359] ← RX: [FLASH] =================================
+[16:00:02.368] ← RX: [INFO][5302] [INIT] No saved positions, setting to center
+[16:00:02.369] ← RX: [INFO][5302] [INIT] Hardware OK!
+[16:00:02.369] ← RX: [INFO][5352] [QP] Initializing framework...
+[16:00:02.370] ← RX: [INFO][5402]
+[16:00:02.379] ← RX: [QP] Event pools...
+[16:00:02.390] ← RX: [INFO][5452] [QP] Creating Active Objects...
+[16:00:02.443] ← RX: [INFO][5502] [QP] Starting Active Objects...
+[16:00:02.486] ← RX: [DEBUG][5552] [AO-COMM] Initial state
+[16:00:02.495] ← RX: [DEBUG][5552] [AO-COMM] Entering ACTIVE state
+[16:00:02.496] ← RX: [DEBUG][5552] [AO-MOTION] Initial state
+[16:00:02.496] ← RX: [DEBUG][5552] [AO-MOTION] >>> Entering IDLE state 
+[16:00:02.506] ← RX: [INFO][5552] [AO-SYSTEM] Initial state
+[16:00:02.507] ← RX: [INFO][5552] [AO-SYSTEM] LED initialized (GPIO mode)
+[16:00:02.507] ← RX: [DEBUG][5552] [AO-SYSTEM
+[16:00:02.517] ← RX: ] Entering NORMAL state
+[16:00:02.517] ← RX: [INFO][5552] [QP] All AOs started!
+[16:00:02.538] ← RX: [INFO][5602] [QP] System ready!
+[16:00:02.590] ← RX: [INFO][5652] Entering event loop...
+[16:00:02.889] ← RX: [QP] QF_onStartup called.
+[16:00:02.890] ← RX: [QP] SysTick configured (1ms period).
+[16:00:02.900] ← RX: [DEBUG][5962] [USB] RX: 1 bytes
+[16:00:03.892] ← RX: [DEBUG][6952] [USB] Poll #100, Available: 0
+[16:00:04.888] ← RX: [DEBUG][7952] [USB] Poll #200, Available: 0
+[16:00:05.889] ← RX: [DEBUG][8952] [USB] Poll #300, Available: 0
+[16:00:06.892] ← RX: [DEBUG][9952] [USB] Poll #400, Available: 0
+[16:00:07.892] ← RX: [DEBUG][10952] [USB] Poll #500, Available: 0
+[16:00:08.891] ← RX: [DEBUG][11952] [USB] Poll #600, Available: 0
