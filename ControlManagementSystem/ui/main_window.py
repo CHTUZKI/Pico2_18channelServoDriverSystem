@@ -909,7 +909,12 @@ class MainWindow(QMainWindow):
             self.stop_action.setEnabled(True)
             self.running_label.setText("运行中")
             
-            success = self.servo_commander.execute_sequence(self.serial_comm, sequence)
+            # 传入timeline_data以支持循环模式
+            success = self.servo_commander.execute_sequence(
+                self.serial_comm, 
+                sequence, 
+                self.timeline_widget.timeline_data
+            )
             
             self.is_running = False
             self.run_action.setEnabled(True)
@@ -927,6 +932,10 @@ class MainWindow(QMainWindow):
     def stop_program(self):
         """停止程序"""
         if self.is_connected:
+            # 发送停止信号给servo_commander（退出循环）
+            self.servo_commander.stop_execution()
+            
+            # 发送紧急停止命令到单片机
             self.serial_comm.emergency_stop()
             
             self.is_running = False

@@ -20,6 +20,7 @@ class ServoCommander:
     def __init__(self):
         self.servo_count = 18  # 18个舵机（编号0-17）
         self.current_positions = [90.0] * 18  # 当前各舵机位置（度），初始化为90度
+        self.should_stop = False  # 停止标志
     
     def generate_command_sequence(self, timeline_data: TimelineData) -> List[Dict[str, Any]]:
         """生成舵机命令序列
@@ -178,67 +179,110 @@ class ServoCommander:
             'speed_ms': speed_ms
         }
     
-    def execute_sequence(self, serial_comm, sequence: List[Dict[str, Any]]) -> bool:
+    def execute_sequence(self, serial_comm, sequence: List[Dict[str, Any]], timeline_data=None) -> bool:
         """执行命令序列
         
         Args:
             serial_comm: 串口通信对象
             sequence: 命令序列
+            timeline_data: 时间轴数据（用于检查循环模式）
         
         Returns:
             是否执行成功
         """
         try:
-            logger.info(f"开始执行命令序列，共{len(sequence)}条命令")
+            # 检查是否有任何轨道设置了循环模式
+            should_loop = False
+            if timeline_data:
+                for track in timeline_data.tracks:
+                    if track.loop_mode == LoopMode.LOOP and len(track.components) > 0:
+                        should_loop = True
+                        break
+            
+            if should_loop:
+                logger.info(f"检测到循环模式，命令序列将持续循环执行（共{len(sequence)}条命令）")
+            else:
+                logger.info(f"单次执行模式，共{len(sequence)}条命令")
             
             # 先使能所有舵机
             logger.info("使能所有舵机")
             serial_comm.enable_servo(0xFF)
             time.sleep(0.2)
             
-            for i, cmd in enumerate(sequence):
-                logger.info(f"执行命令 {i+1}/{len(sequence)}")
-                
-                if cmd['type'] == 'motion':
-                    # 运动命令
-                    servos = cmd['servos']
-                    speed_ms = cmd['speed_ms']
-                    
-                    # 准备所有舵机的角度（未指定的保持当前位置）
-                    all_angles = self.current_positions.copy()
-                    for servo_id, angle in servos.items():
-                        if 0 <= servo_id < self.servo_count:
-                            all_angles[servo_id] = angle
-                        else:
-                            logger.error(f"舵机ID超出范围: {servo_id}, 有效范围: 0-{self.servo_count-1}")
-                    
-                    # 发送命令
-                    logger.info(f"  运动命令: 时间{speed_ms}ms，发送{len(all_angles)}个角度")
-                    for servo_id, angle in servos.items():
-                        logger.info(f"    舵机{servo_id}: {angle:.1f}°")
-                    
-                    if not serial_comm.move_all_servos(all_angles, speed_ms):
-                        logger.error("发送运动命令失败")
-                        return False
-                    
-                    # 等待运动完成（加上一点余量）
-                    wait_time = speed_ms / 1000.0 + 0.1
-                    logger.debug(f"  等待运动完成: {wait_time:.2f}秒")
-                    time.sleep(wait_time)
-                    
-                elif cmd['type'] == 'delay':
-                    # 延时命令
-                    duration = cmd['duration']
-                    logger.info(f"  延时: {duration}秒")
-                    time.sleep(duration)
+            # 重置停止标志
+            self.should_stop = False
             
-            logger.info("命令序列执行完成")
+            # 循环执行或单次执行
+            loop_count = 0
+            while True:
+                # 检查停止标志
+                if self.should_stop:
+                    logger.info("检测到停止信号，退出执行")
+                    return False
+                
+                loop_count += 1
+                if should_loop:
+                    logger.info(f"=== 开始第 {loop_count} 次循环 ===")
+                
+                for i, cmd in enumerate(sequence):
+                    # 每个命令前检查停止标志
+                    if self.should_stop:
+                        logger.info("检测到停止信号，退出执行")
+                        return False
+                    logger.info(f"执行命令 {i+1}/{len(sequence)}")
+                    
+                    if cmd['type'] == 'motion':
+                        # 运动命令
+                        servos = cmd['servos']
+                        speed_ms = cmd['speed_ms']
+                        
+                        # 准备所有舵机的角度（未指定的保持当前位置）
+                        all_angles = self.current_positions.copy()
+                        for servo_id, angle in servos.items():
+                            if 0 <= servo_id < self.servo_count:
+                                all_angles[servo_id] = angle
+                            else:
+                                logger.error(f"舵机ID超出范围: {servo_id}, 有效范围: 0-{self.servo_count-1}")
+                        
+                        # 发送命令
+                        logger.info(f"  运动命令: 时间{speed_ms}ms，发送{len(all_angles)}个角度")
+                        for servo_id, angle in servos.items():
+                            logger.info(f"    舵机{servo_id}: {angle:.1f}°")
+                        
+                        if not serial_comm.move_all_servos(all_angles, speed_ms):
+                            logger.error("发送运动命令失败")
+                            return False
+                        
+                        # 等待运动完成（加上一点余量）
+                        wait_time = speed_ms / 1000.0 + 0.1
+                        logger.debug(f"  等待运动完成: {wait_time:.2f}秒")
+                        time.sleep(wait_time)
+                        
+                    elif cmd['type'] == 'delay':
+                        # 延时命令
+                        duration = cmd['duration']
+                        logger.info(f"  延时: {duration}秒")
+                        time.sleep(duration)
+                
+                # 如果是单次模式，执行完一遍就退出
+                if not should_loop:
+                    logger.info("命令序列执行完成（单次模式）")
+                    break
+                
+                # 循环模式：继续下一轮
+                logger.info(f"=== 第 {loop_count} 次循环完成，继续... ===")
+            
             return True
             
         except Exception as e:
             error_msg = f"执行命令序列失败: {e}"
             logger.error(error_msg)
             return False
+    
+    def stop_execution(self):
+        """停止命令序列执行"""
+        self.should_stop = True
+        logger.info("发送停止信号")
     
     def generate_preview_text(self, timeline_data: TimelineData) -> str:
         """生成命令预览文本（用于显示）"""
