@@ -39,5 +39,29 @@ extern QActive * const AO_Motion;
  */
 void AO_Motion_ctor(void);
 
+/**
+ * @brief 设置单轴梯形速度运动
+ * @param axis_id 轴ID（0-17）
+ * @param target_pos 目标位置
+ * @param params 运动参数
+ * @return true 成功, false 失败
+ */
+bool AO_Motion_set_trapezoid(uint8_t axis_id, float target_pos, const motion_params_t *params);
+
+/**
+ * @brief 设置单轴轨迹队列
+ * @param axis_id 轴ID（0-17）
+ * @param trajectory 轨迹队列指针
+ * @return true 成功, false 失败
+ */
+bool AO_Motion_set_trajectory(uint8_t axis_id, trajectory_queue_t *trajectory);
+
+/**
+ * @brief 获取单轴插值器
+ * @param axis_id 轴ID（0-17）
+ * @return 插值器指针，NULL表示无效ID
+ */
+interpolator_t* AO_Motion_get_interpolator(uint8_t axis_id);
+
 #endif // AO_MOTION_H
 

@@ -11,6 +11,7 @@
 #include "utils/error_handler.h"
 #include "utils/usb_bridge.h"
 #include "config/config.h"
+#include "motion/interpolation.h"
 #include <string.h>
 
 // 调试宏
@@ -23,6 +24,9 @@
 // 命令统计
 static uint32_t g_cmd_count = 0;
 static uint32_t g_cmd_error_count = 0;
+
+// 轨迹队列（每个舵机一个）
+static trajectory_queue_t g_trajectories[SERVO_COUNT];
 
 void commands_init(void) {
     g_cmd_count = 0;
@@ -80,6 +84,30 @@ bool commands_process(const protocol_frame_t *frame, command_result_t *result) {
             
         case CMD_PING:
             cmd_ping(frame, result);
+            break;
+            
+        case CMD_MOVE_TRAPEZOID:
+            cmd_move_trapezoid(frame, result);
+            break;
+            
+        case CMD_TRAJ_ADD_POINT:
+            cmd_traj_add_point(frame, result);
+            break;
+            
+        case CMD_TRAJ_START:
+            cmd_traj_start(frame, result);
+            break;
+            
+        case CMD_TRAJ_STOP:
+            cmd_traj_stop(frame, result);
+            break;
+            
+        case CMD_TRAJ_CLEAR:
+            cmd_traj_clear(frame, result);
+            break;
+            
+        case CMD_TRAJ_GET_INFO:
+            cmd_traj_get_info(frame, result);
             break;
             
         default:
@@ -305,6 +333,209 @@ void cmd_ping(const protocol_frame_t *frame, command_result_t *result) {
     result->data[3] = (uint8_t)system_get_state();
     
     result->data_len = 4;
+    result->resp_code = RESP_OK;
+}
+
+// ==================== 梯形速度和轨迹规划命令 ====================
+
+void cmd_move_trapezoid(const protocol_frame_t *frame, command_result_t *result) {
+    /**
+     * 数据格式（9字节）：
+     * [0]: servo_id
+     * [1-2]: target_angle (int16, 角度×100)
+     * [3-4]: max_velocity (uint16, 度/秒×10)
+     * [5-6]: acceleration (uint16, 度/秒²×10)
+     * [7-8]: deceleration (uint16, 度/秒²×10, 如果为0则使用acceleration)
+     */
+    if (frame->len < 9) {
+        result->resp_code = RESP_INVALID_PARAM;
+        error_set(ERROR_CMD_PARAM);
+        return;
+    }
+    
+    uint8_t servo_id = frame->data[0];
+    if (servo_id >= SERVO_COUNT) {
+        result->resp_code = RESP_INVALID_PARAM;
+        error_set(ERROR_CMD_ID);
+        return;
+    }
+    
+    // 解析参数
+    int16_t angle_raw = (int16_t)((frame->data[1] << 8) | frame->data[2]);
+    uint16_t velocity_raw = (frame->data[3] << 8) | frame->data[4];
+    uint16_t accel_raw = (frame->data[5] << 8) | frame->data[6];
+    uint16_t decel_raw = (frame->data[7] << 8) | frame->data[8];
+    
+    // 转换为实际值
+    float target_angle = (float)angle_raw / 100.0f;
+    motion_params_t params;
+    params.max_velocity = (float)velocity_raw / 10.0f;
+    params.acceleration = (float)accel_raw / 10.0f;
+    params.deceleration = (float)decel_raw / 10.0f;
+    
+    #if DEBUG_COMMAND
+    CMD_DEBUG("MOVE_TRAPEZOID: id=%d, angle=%.1f, v=%.1f, a=%.1f, d=%.1f\\n",
+              servo_id, target_angle, params.max_velocity, 
+              params.acceleration, params.deceleration);
+    #endif
+    
+    // 设置梯形速度运动（通过servo_control模块）
+    servo_move_trapezoid(servo_id, target_angle, &params);
+    
+    result->resp_code = RESP_OK;
+}
+
+void cmd_traj_add_point(const protocol_frame_t *frame, command_result_t *result) {
+    /**
+     * 数据格式（11字节）：
+     * [0]: servo_id
+     * [1-2]: position (int16, 角度×100)
+     * [3-4]: max_velocity (uint16, 度/秒×10)
+     * [5-6]: acceleration (uint16, 度/秒²×10)
+     * [7-8]: deceleration (uint16, 度/秒²×10)
+     * [9-10]: dwell_time_ms (uint16, 毫秒)
+     */
+    if (frame->len < 11) {
+        result->resp_code = RESP_INVALID_PARAM;
+        error_set(ERROR_CMD_PARAM);
+        return;
+    }
+    
+    uint8_t servo_id = frame->data[0];
+    if (servo_id >= SERVO_COUNT) {
+        result->resp_code = RESP_INVALID_PARAM;
+        error_set(ERROR_CMD_ID);
+        return;
+    }
+    
+    // 解析参数
+    int16_t pos_raw = (int16_t)((frame->data[1] << 8) | frame->data[2]);
+    uint16_t velocity_raw = (frame->data[3] << 8) | frame->data[4];
+    uint16_t accel_raw = (frame->data[5] << 8) | frame->data[6];
+    uint16_t decel_raw = (frame->data[7] << 8) | frame->data[8];
+    uint16_t dwell_ms = (frame->data[9] << 8) | frame->data[10];
+    
+    // 转换为实际值
+    float position = (float)pos_raw / 100.0f;
+    motion_params_t params;
+    params.max_velocity = (float)velocity_raw / 10.0f;
+    params.acceleration = (float)accel_raw / 10.0f;
+    params.deceleration = (float)decel_raw / 10.0f;
+    
+    // 添加到轨迹队列
+    if (trajectory_add_point(&g_trajectories[servo_id], position, &params, dwell_ms)) {
+        result->resp_code = RESP_OK;
+    } else {
+        result->resp_code = RESP_ERROR;  // 队列已满
+    }
+}
+
+void cmd_traj_start(const protocol_frame_t *frame, command_result_t *result) {
+    /**
+     * 数据格式（2字节）：
+     * [0]: servo_id
+     * [1]: loop (0=不循环, 1=循环)
+     */
+    if (frame->len < 2) {
+        result->resp_code = RESP_INVALID_PARAM;
+        error_set(ERROR_CMD_PARAM);
+        return;
+    }
+    
+    uint8_t servo_id = frame->data[0];
+    if (servo_id >= SERVO_COUNT) {
+        result->resp_code = RESP_INVALID_PARAM;
+        error_set(ERROR_CMD_ID);
+        return;
+    }
+    
+    bool loop = (frame->data[1] != 0);
+    
+    // 开始执行轨迹
+    if (trajectory_start(&g_trajectories[servo_id], loop)) {
+        // 将轨迹队列绑定到舵机的插值器
+        servo_set_trajectory(servo_id, &g_trajectories[servo_id]);
+        result->resp_code = RESP_OK;
+    } else {
+        result->resp_code = RESP_ERROR;  // 轨迹为空
+    }
+}
+
+void cmd_traj_stop(const protocol_frame_t *frame, command_result_t *result) {
+    /**
+     * 数据格式（1字节）：
+     * [0]: servo_id
+     */
+    if (frame->len < 1) {
+        result->resp_code = RESP_INVALID_PARAM;
+        error_set(ERROR_CMD_PARAM);
+        return;
+    }
+    
+    uint8_t servo_id = frame->data[0];
+    if (servo_id >= SERVO_COUNT) {
+        result->resp_code = RESP_INVALID_PARAM;
+        error_set(ERROR_CMD_ID);
+        return;
+    }
+    
+    // 停止轨迹
+    trajectory_stop(&g_trajectories[servo_id]);
+    result->resp_code = RESP_OK;
+}
+
+void cmd_traj_clear(const protocol_frame_t *frame, command_result_t *result) {
+    /**
+     * 数据格式（1字节）：
+     * [0]: servo_id
+     */
+    if (frame->len < 1) {
+        result->resp_code = RESP_INVALID_PARAM;
+        error_set(ERROR_CMD_PARAM);
+        return;
+    }
+    
+    uint8_t servo_id = frame->data[0];
+    if (servo_id >= SERVO_COUNT) {
+        result->resp_code = RESP_INVALID_PARAM;
+        error_set(ERROR_CMD_ID);
+        return;
+    }
+    
+    // 清空轨迹
+    trajectory_clear(&g_trajectories[servo_id]);
+    result->resp_code = RESP_OK;
+}
+
+void cmd_traj_get_info(const protocol_frame_t *frame, command_result_t *result) {
+    /**
+     * 数据格式（1字节）：
+     * [0]: servo_id
+     * 
+     * 响应数据（3字节）：
+     * [0]: point_count
+     * [1]: current_index
+     * [2]: running (0=stopped, 1=running) | loop (bit1)
+     */
+    if (frame->len < 1) {
+        result->resp_code = RESP_INVALID_PARAM;
+        error_set(ERROR_CMD_PARAM);
+        return;
+    }
+    
+    uint8_t servo_id = frame->data[0];
+    if (servo_id >= SERVO_COUNT) {
+        result->resp_code = RESP_INVALID_PARAM;
+        error_set(ERROR_CMD_ID);
+        return;
+    }
+    
+    // 获取轨迹信息
+    trajectory_queue_t *traj = &g_trajectories[servo_id];
+    result->data[0] = traj->count;
+    result->data[1] = traj->current_index;
+    result->data[2] = (traj->running ? 0x01 : 0x00) | (traj->loop ? 0x02 : 0x00);
+    result->data_len = 3;
     result->resp_code = RESP_OK;
 }
 

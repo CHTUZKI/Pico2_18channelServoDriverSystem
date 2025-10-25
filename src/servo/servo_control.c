@@ -9,6 +9,7 @@
 #include "utils/error_handler.h"
 #include "utils/usb_bridge.h"
 #include "config/config.h"
+#include "ao/ao_motion.h"
 #include <string.h>
 #include <math.h>
 #include <stdio.h>
@@ -314,5 +315,30 @@ void servo_apply_default_calibration(uint8_t id) {
     } else if (id < SERVO_COUNT) {
         g_servos[id].calibration = g_default_calibration;
     }
+}
+
+// ==================== 梯形速度和轨迹规划接口 ====================
+
+bool servo_move_trapezoid(uint8_t id, float angle, const motion_params_t *params) {
+    if (id >= SERVO_COUNT || params == NULL) {
+        return false;
+    }
+    
+    // 检查角度限位
+    if (!servo_check_angle_limit(id, angle)) {
+        return false;
+    }
+    
+    // 调用AO_Motion接口
+    return AO_Motion_set_trapezoid(id, angle, params);
+}
+
+bool servo_set_trajectory(uint8_t id, trajectory_queue_t *trajectory) {
+    if (id >= SERVO_COUNT || trajectory == NULL) {
+        return false;
+    }
+    
+    // 调用AO_Motion接口
+    return AO_Motion_set_trajectory(id, trajectory);
 }
 

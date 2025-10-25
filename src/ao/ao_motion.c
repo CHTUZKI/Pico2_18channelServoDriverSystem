@@ -275,3 +275,53 @@ static QState AO_Motion_moving(AO_Motion_t * const me, QEvt const * const e) {
     return status;
 }
 
+// ==================== 公共接口实现 ====================
+
+bool AO_Motion_set_trapezoid(uint8_t axis_id, float target_pos, const motion_params_t *params) {
+    if (axis_id >= SERVO_COUNT || params == NULL) {
+        return false;
+    }
+    
+    AO_Motion_t *me = &AO_Motion_inst;
+    interpolator_t *interp = &me->interpolator.axes[axis_id];
+    
+    // 获取当前位置作为起始位置
+    float start_pos = servo_get_angle(axis_id);
+    
+    // 设置梯形速度运动
+    interpolator_set_trapezoid_motion(interp, start_pos, target_pos, params);
+    
+    MOTION_DEBUG("[AO-MOTION] Set trapezoid motion: axis=%d, %.1f->%.1f, v=%.1f, a=%.1f\n",
+                 axis_id, start_pos, target_pos, params->max_velocity, params->acceleration);
+    
+    // 标记为运动中
+    me->is_moving = true;
+    
+    return true;
+}
+
+bool AO_Motion_set_trajectory(uint8_t axis_id, trajectory_queue_t *trajectory) {
+    if (axis_id >= SERVO_COUNT || trajectory == NULL) {
+        return false;
+    }
+    
+    AO_Motion_t *me = &AO_Motion_inst;
+    interpolator_t *interp = &me->interpolator.axes[axis_id];
+    
+    // 绑定轨迹队列到插值器
+    interp->trajectory = trajectory;
+    
+    MOTION_DEBUG("[AO-MOTION] Set trajectory: axis=%d, points=%d\n",
+                 axis_id, trajectory->count);
+    
+    return true;
+}
+
+interpolator_t* AO_Motion_get_interpolator(uint8_t axis_id) {
+    if (axis_id >= SERVO_COUNT) {
+        return NULL;
+    }
+    
+    return &AO_Motion_inst.interpolator.axes[axis_id];
+}
+

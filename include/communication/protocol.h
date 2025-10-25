@@ -18,9 +18,18 @@
 
 // ==================== 命令定义 ====================
 // 位置控制命令
-#define CMD_MOVE_SINGLE         0x01    // 单轴位置控制
+#define CMD_MOVE_SINGLE         0x01    // 单轴位置控制（基于时间）
 #define CMD_MOVE_MULTI          0x02    // 多轴选择性控制
 #define CMD_MOVE_ALL            0x03    // 全轴批量控制
+#define CMD_MOVE_TRAPEZOID      0x04    // 单轴梯形速度控制
+#define CMD_MOVE_TRAP_MULTI     0x05    // 多轴梯形速度控制
+
+// 轨迹规划命令
+#define CMD_TRAJ_ADD_POINT      0x06    // 添加轨迹点
+#define CMD_TRAJ_START          0x07    // 开始执行轨迹
+#define CMD_TRAJ_STOP           0x08    // 停止执行轨迹
+#define CMD_TRAJ_CLEAR          0x09    // 清空轨迹
+#define CMD_TRAJ_GET_INFO       0x0A    // 查询轨迹信息
 
 // 查询命令
 #define CMD_GET_SINGLE          0x10    // 查询单轴状态

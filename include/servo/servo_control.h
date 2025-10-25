@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "config/config.h"
+#include "motion/interpolation.h"  // 用于梯形速度和轨迹规划
 
 /**
  * @brief 舵机校准参数
@@ -149,6 +150,23 @@ bool servo_check_angle_limit(uint8_t id, float angle);
  * @param id 舵机ID（0-17，0xFF=全部）
  */
 void servo_apply_default_calibration(uint8_t id);
+
+/**
+ * @brief 梯形速度运动
+ * @param id 舵机ID
+ * @param angle 目标角度
+ * @param params 运动参数（速度、加速度）
+ * @return true 成功, false 失败
+ */
+bool servo_move_trapezoid(uint8_t id, float angle, const motion_params_t *params);
+
+/**
+ * @brief 设置轨迹队列
+ * @param id 舵机ID
+ * @param trajectory 轨迹队列指针
+ * @return true 成功, false 失败
+ */
+bool servo_set_trajectory(uint8_t id, trajectory_queue_t *trajectory);
 
 #endif // SERVO_CONTROL_H
 

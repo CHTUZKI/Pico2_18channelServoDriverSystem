@@ -103,5 +103,47 @@ void cmd_emergency_stop(const protocol_frame_t *frame, command_result_t *result)
  */
 void cmd_ping(const protocol_frame_t *frame, command_result_t *result);
 
+/**
+ * @brief 处理MOVE_TRAPEZOID命令（梯形速度运动）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_move_trapezoid(const protocol_frame_t *frame, command_result_t *result);
+
+/**
+ * @brief 处理TRAJ_ADD_POINT命令（添加轨迹点）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_traj_add_point(const protocol_frame_t *frame, command_result_t *result);
+
+/**
+ * @brief 处理TRAJ_START命令（开始执行轨迹）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_traj_start(const protocol_frame_t *frame, command_result_t *result);
+
+/**
+ * @brief 处理TRAJ_STOP命令（停止执行轨迹）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_traj_stop(const protocol_frame_t *frame, command_result_t *result);
+
+/**
+ * @brief 处理TRAJ_CLEAR命令（清空轨迹）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_traj_clear(const protocol_frame_t *frame, command_result_t *result);
+
+/**
+ * @brief 处理TRAJ_GET_INFO命令（查询轨迹信息）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_traj_get_info(const protocol_frame_t *frame, command_result_t *result);
+
 #endif // COMMANDS_H
 
