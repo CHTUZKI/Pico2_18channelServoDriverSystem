@@ -106,7 +106,7 @@ class ServoCommander:
                 motion_cmd = self._generate_motion_command(motion_events, time_point)
                 if motion_cmd:
                     command_sequence.append(motion_cmd)
-                    logger.info(f"  生成运动命令: {len(motion_cmd['servos'])} 个舵机")
+                    logger.info(f"  生成运动命令: {len(motion_cmd['servo_data'])} 个舵机")
             
             # 生成延时命令
             for delay_event in delay_events:
