@@ -15,7 +15,7 @@
 #include "servo/servo_manager.h"
 #include "test/auto_test.h"
 #include "utils/usb_bridge.h"
-#include "motion/motion_scheduler.h"  // 使用运动调度器（替代motion_buffer）
+#include "motion/planner.h"  // 使用Look-Ahead运动规划器
 #include <stdio.h>
 #include <math.h>
 
@@ -42,18 +42,53 @@ static QState AO_Motion_moving(AO_Motion_t * const me, QEvt const * const e);
 
 // ==================== 运动执行回调 ====================
 /**
- * @brief 调度器回调：执行梯形速度运动
+ * @brief 规划器回调：执行规划好的运动块
+ * @param block 规划块（包含优化后的速度参数）
  */
-static void motion_execute_trapezoid_callback(uint8_t servo_id, float target_angle, 
-                                             float velocity, float acceleration, float deceleration) {
-    AO_Motion_set_trapezoid(servo_id, target_angle, velocity, acceleration, deceleration);
+static void planner_execute_block_callback(const plan_block_t *block) {
+    if (block == NULL) {
+        return;
+    }
+    
+    // 使用规划器计算好的进入/退出速度设置梯形运动
+    // 注意：这里使用的是规划器优化后的速度参数
+    AO_Motion_t *me = &AO_Motion_inst;
+    
+    // 设置插值器参数（使用规划后的速度曲线）
+    interpolator_t *interp = &me->interpolator.axes[block->servo_id];
+    
+    motion_params_t params = {
+        .max_velocity = block->v_max_actual,      // 使用规划后的最大速度
+        .acceleration = block->acceleration,
+        .deceleration = block->deceleration
+    };
+    
+    // 设置梯形运动（注意：起始位置是当前位置，不是block->start_angle）
+    // 因为可能有速度衔接，不一定从0速度开始
+    interpolator_set_trapezoid_motion(interp,
+                                      block->start_angle,
+                                      block->target_angle,
+                                      &params);
+    
+    // 手动设置进入/退出速度（实现速度平滑过渡）
+    interp->t_accel = block->t_accel;
+    interp->t_const = block->t_const;
+    interp->t_decel = block->t_decel;
+    interp->v_max_actual = block->v_max_actual;
+    interp->duration = block->duration_ms;
+    
+    #if DEBUG_MOTION_SUMMARY
+    usb_bridge_printf("[AO-MOTION] Execute block: S%d %.1f->%.1f v=%.1f (entry=%.1f exit=%.1f)\n",
+                     block->servo_id, block->start_angle, block->target_angle,
+                     block->v_max_actual, block->entry_speed, block->exit_speed);
+    #endif
     
     // 发送MOTION_START事件触发状态转换
     static MotionStartEvt start_evt;
     start_evt.super.sig = MOTION_START_SIG;
     start_evt.axis_count = 1;
-    start_evt.duration_ms = 0;
-    start_evt.target_positions[servo_id] = target_angle;
+    start_evt.duration_ms = block->duration_ms;
+    start_evt.target_positions[block->servo_id] = block->target_angle;
     
     QACTIVE_POST((QActive *)&AO_Motion_inst, (QEvt *)&start_evt, 0);
 }
@@ -75,9 +110,9 @@ void AO_Motion_ctor(void) {
     // 初始化状态数据
     me->is_moving = false;
     
-    // 初始化运动调度器并注册回调
-    motion_scheduler_init();
-    motion_scheduler_set_callback(motion_execute_trapezoid_callback);
+    // 初始化运动规划器并注册回调
+    planner_init(NULL);  // 使用全局实例
+    planner_set_callback(planner_execute_block_callback);
 }
 
 // ==================== 状态机实现 ====================
@@ -180,8 +215,9 @@ static QState AO_Motion_idle(AO_Motion_t * const me, QEvt const * const e) {
         }
         
         case INTERP_TICK_SIG: {
-            // 运动缓冲区调度器（每20ms检查一次）
-            motion_scheduler_update();
+            // 运动规划器更新（每20ms检查一次）
+            // 执行：时间戳检查、前瞻规划、运动调度
+            planner_update();
             
             status = Q_HANDLED();
             break;

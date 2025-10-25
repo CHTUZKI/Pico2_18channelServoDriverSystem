@@ -33,8 +33,7 @@
 #define DEBUG_AO_MOTION         0       // Motion AO状态转换（已优化，可关闭）
 
 // 运动缓冲区和调度器调试（新架构）
-#define DEBUG_SCHEDULER         1       // 调度器执行（显示指令触发）✅ 开启
-#define DEBUG_BUFFER            1       // 缓冲区操作（添加/移除指令）✅ 开启
+#define DEBUG_PLANNER           1       // 运动规划器（缓冲区+调度+前瞻规划）✅ 开启
 
 // 舵机和PWM调试
 #define DEBUG_SERVO             0       // 舵机角度转换（每次都输出，太多）
