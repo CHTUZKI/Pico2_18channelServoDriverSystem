@@ -6,7 +6,7 @@
 """
 
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QLabel, QComboBox, 
-                             QFrame, QMenu, QAction, QDialog, QMessageBox)
+                             QFrame, QMenu, QAction, QDialog, QMessageBox, QPushButton, QVBoxLayout)
 from PyQt5.QtCore import Qt, pyqtSignal, QRect, QPoint, QMimeData
 from PyQt5.QtGui import QPainter, QColor, QPen, QBrush, QFont, QDragEnterEvent, QDropEvent
 from models.component import Component, ComponentType, create_component
@@ -558,6 +558,8 @@ class MotorTrack(QWidget):
     component_deleted = pyqtSignal(str)  # 部件ID
     loop_mode_changed = pyqtSignal(int, LoopMode)  # 电机ID, 循环模式
     servo_enable_clicked = pyqtSignal(int)  # 舵机使能点击信号，传递舵机ID
+    jog_plus_clicked = pyqtSignal(int)  # Jog+点击信号，传递舵机ID
+    jog_minus_clicked = pyqtSignal(int)  # Jog-点击信号，传递舵机ID
     
     def __init__(self, motor_id: int, motor_name: str, parent=None):
         super().__init__(parent)
@@ -617,13 +619,87 @@ class MotorTrack(QWidget):
         self.track_widget.setMinimumWidth(500)
         layout.addWidget(self.track_widget)
         
+        # 右侧控制区域容器（固定宽度以避免遮挡）
+        control_widget = QWidget()
+        control_widget.setFixedWidth(100)  # 增加宽度确保完整显示
+        control_layout = QVBoxLayout()
+        control_layout.setContentsMargins(2, 0, 2, 0)  # 左右各留2px边距
+        control_layout.setSpacing(2)
+        
         # 循环模式选择
         self.loop_combo = QComboBox()
         self.loop_combo.addItem("单次", LoopMode.SINGLE)
         self.loop_combo.addItem("循环", LoopMode.LOOP)
-        self.loop_combo.setFixedWidth(60)
+        self.loop_combo.setFixedWidth(80)
         self.loop_combo.currentTextChanged.connect(self._on_loop_mode_changed)
-        layout.addWidget(self.loop_combo)
+        control_layout.addWidget(self.loop_combo)
+        
+        # Jog按钮水平布局
+        jog_layout = QHBoxLayout()
+        jog_layout.setContentsMargins(0, 0, 0, 0)
+        jog_layout.setSpacing(4)
+        jog_layout.setAlignment(Qt.AlignLeft)  # 左对齐
+        
+        # Jog- 按钮
+        self.jog_minus_btn = QPushButton("◀")
+        self.jog_minus_btn.setFixedSize(32, 24)
+        self.jog_minus_btn.setToolTip("手动后退10°")
+        self.jog_minus_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FF9800;
+                color: white;
+                border: none;
+                border-radius: 3px;
+                font-weight: bold;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #F57C00;
+            }
+            QPushButton:pressed {
+                background-color: #E65100;
+            }
+            QPushButton:disabled {
+                background-color: #BDBDBD;
+                color: #757575;
+            }
+        """)
+        self.jog_minus_btn.clicked.connect(self._on_jog_minus_clicked)
+        self.jog_minus_btn.setEnabled(False)  # 初始禁用
+        jog_layout.addWidget(self.jog_minus_btn)
+        
+        # Jog+ 按钮
+        self.jog_plus_btn = QPushButton("▶")
+        self.jog_plus_btn.setFixedSize(32, 24)
+        self.jog_plus_btn.setToolTip("手动前进10°")
+        self.jog_plus_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 3px;
+                font-weight: bold;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #388E3C;
+            }
+            QPushButton:disabled {
+                background-color: #BDBDBD;
+                color: #757575;
+            }
+        """)
+        self.jog_plus_btn.clicked.connect(self._on_jog_plus_clicked)
+        self.jog_plus_btn.setEnabled(False)  # 初始禁用
+        jog_layout.addWidget(self.jog_plus_btn)
+        
+        jog_layout.addStretch()  # 添加弹性空间，将按钮推到左侧
+        control_layout.addLayout(jog_layout)
+        control_widget.setLayout(control_layout)
+        layout.addWidget(control_widget)
         
         self.setLayout(layout)
         
@@ -635,6 +711,14 @@ class MotorTrack(QWidget):
         if event.button() == Qt.LeftButton:
             # 发送舵机使能点击信号
             self.servo_enable_clicked.emit(self.motor_id)
+    
+    def _on_jog_plus_clicked(self):
+        """Jog+按钮点击事件"""
+        self.jog_plus_clicked.emit(self.motor_id)
+    
+    def _on_jog_minus_clicked(self):
+        """Jog-按钮点击事件"""
+        self.jog_minus_clicked.emit(self.motor_id)
     
     def _update_enable_state(self):
         """更新使能状态显示"""
@@ -655,6 +739,9 @@ class MotorTrack(QWidget):
                     background-color: #45a049;
                 }
             """)
+            # 启用jog按钮
+            self.jog_plus_btn.setEnabled(True)
+            self.jog_minus_btn.setEnabled(True)
         else:
             # 禁用状态：灰色
             self.motor_label.setStyleSheet("""
@@ -672,6 +759,9 @@ class MotorTrack(QWidget):
                     background-color: #d0d0d0;
                 }
             """)
+            # 禁用jog按钮
+            self.jog_plus_btn.setEnabled(False)
+            self.jog_minus_btn.setEnabled(False)
     
     def set_enable_state(self, enabled: bool):
         """设置使能状态"""

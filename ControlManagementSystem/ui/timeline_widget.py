@@ -149,6 +149,8 @@ class TimelineWidget(QWidget):
     loop_mode_changed = pyqtSignal(int, LoopMode)  # 舵机ID, 循环模式
     time_changed = pyqtSignal(float)  # 当前时间改变
     servo_enable_clicked = pyqtSignal(int)  # 舵机使能点击信号，传递舵机ID
+    jog_plus_clicked = pyqtSignal(int)  # Jog+点击信号，传递舵机ID
+    jog_minus_clicked = pyqtSignal(int)  # Jog-点击信号，传递舵机ID
     
     def __init__(self, parent=None, config_manager=None):
         super().__init__(parent)
@@ -279,6 +281,8 @@ class TimelineWidget(QWidget):
             motor_track.component_deleted.connect(self._on_component_deleted)
             motor_track.loop_mode_changed.connect(self._on_loop_mode_changed)
             motor_track.servo_enable_clicked.connect(self.servo_enable_clicked.emit)
+            motor_track.jog_plus_clicked.connect(self.jog_plus_clicked.emit)
+            motor_track.jog_minus_clicked.connect(self.jog_minus_clicked.emit)
             
             self.motor_tracks[track.motor_id] = motor_track
             self.tracks_layout.addWidget(motor_track)

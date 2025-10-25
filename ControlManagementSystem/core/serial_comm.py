@@ -289,6 +289,53 @@ class SerialComm(QObject):
         logger.info("从Flash加载参数")
         return self.send_servo_command(self.CMD_LOAD_FLASH)
     
+    def move_servo_to(self, servo_id: int, angle: float, speed: int = 0) -> bool:
+        """移动舵机到指定角度
+        
+        Args:
+            servo_id: 舵机ID (0-17)
+            angle: 目标角度 (0-180度)
+            speed: 速度 (ms)，暂未使用
+        
+        Returns:
+            bool: 是否发送成功
+        """
+        # 限制角度范围
+        angle = max(0.0, min(180.0, angle))
+        
+        # 转换角度（角度×100，例如90.5度 = 9050）
+        angle_raw = int(angle * 100)
+        angle_high = (angle_raw >> 8) & 0xFF
+        angle_low = angle_raw & 0xFF
+        
+        # 速度（暂未使用，设为0）
+        speed_high = (speed >> 8) & 0xFF
+        speed_low = speed & 0xFF
+        
+        # 数据格式：[ID][角度高][角度低][速度高][速度低]
+        data = bytes([servo_id, angle_high, angle_low, speed_high, speed_low])
+        
+        logger.info(f"移动舵机{servo_id}到{angle:.1f}度")
+        return self.send_servo_command(self.CMD_MOVE_SINGLE, data)
+    
+    def jog_servo(self, servo_id: int, current_angle: float, delta: int) -> tuple:
+        """相对移动舵机（Jog）
+        
+        Args:
+            servo_id: 舵机ID (0-17)
+            current_angle: 当前角度
+            delta: 相对角度变化 (例如 +10 或 -10)
+        
+        Returns:
+            tuple: (是否发送成功, 新的目标角度)
+        """
+        target_angle = current_angle + delta
+        # 限制角度范围
+        target_angle = max(0.0, min(180.0, target_angle))
+        
+        success = self.move_servo_to(servo_id, target_angle)
+        return (success, target_angle)
+    
     def set_start_positions(self, angles: list) -> bool:
         """设置起始位置
         

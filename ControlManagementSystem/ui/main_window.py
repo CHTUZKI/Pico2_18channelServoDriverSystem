@@ -56,6 +56,7 @@ class MainWindow(QMainWindow):
         
         # 舵机使能状态管理
         self.servo_enable_states = [False] * 18  # 18个舵机的使能状态
+        self.servo_current_angles = [90.0] * 18  # 18个舵机的当前角度（默认90度）
         self.enable_all_mode = False  # 全部使能模式
         
         logger.info(f"舵机参数: {self.servo_settings['servo_count']}个舵机, 角度范围{self.servo_settings['angle_min']}-{self.servo_settings['angle_max']}°")
@@ -597,6 +598,8 @@ class MainWindow(QMainWindow):
         self.timeline_widget.component_moved.connect(self.on_component_moved)
         self.timeline_widget.component_deleted.connect(self.on_component_deleted)
         self.timeline_widget.servo_enable_clicked.connect(self.on_servo_enable_clicked)
+        self.timeline_widget.jog_plus_clicked.connect(self.on_jog_plus_clicked)
+        self.timeline_widget.jog_minus_clicked.connect(self.on_jog_minus_clicked)
         
         # 串口通信信号
         self.serial_comm.connected.connect(self.on_serial_connected)
@@ -1024,6 +1027,54 @@ class MainWindow(QMainWindow):
             # 更新UI显示
             if servo_id in self.timeline_widget.motor_tracks:
                 self.timeline_widget.motor_tracks[servo_id].set_enable_state(self.servo_enable_states[servo_id])
+    
+    def on_jog_plus_clicked(self, servo_id: int):
+        """Jog+按钮点击处理 - 手动前进10度"""
+        if not self.is_connected:
+            QMessageBox.warning(self, "警告", "请先连接串口")
+            return
+        
+        # 检查舵机是否使能
+        if servo_id >= len(self.servo_enable_states) or not self.servo_enable_states[servo_id]:
+            QMessageBox.warning(self, "警告", f"请先使能舵机{servo_id}")
+            return
+        
+        # 获取当前角度
+        current_angle = self.servo_current_angles[servo_id]
+        
+        # 发送jog+命令（增加10度）
+        success, new_angle = self.serial_comm.jog_servo(servo_id, current_angle, 10)
+        
+        if success:
+            # 更新当前角度
+            self.servo_current_angles[servo_id] = new_angle
+            logger.info(f"舵机{servo_id} Jog+ ({current_angle:.1f}° → {new_angle:.1f}°)")
+        else:
+            logger.error(f"舵机{servo_id} Jog+命令发送失败")
+    
+    def on_jog_minus_clicked(self, servo_id: int):
+        """Jog-按钮点击处理 - 手动后退10度"""
+        if not self.is_connected:
+            QMessageBox.warning(self, "警告", "请先连接串口")
+            return
+        
+        # 检查舵机是否使能
+        if servo_id >= len(self.servo_enable_states) or not self.servo_enable_states[servo_id]:
+            QMessageBox.warning(self, "警告", f"请先使能舵机{servo_id}")
+            return
+        
+        # 获取当前角度
+        current_angle = self.servo_current_angles[servo_id]
+        
+        # 发送jog-命令（减少10度）
+        success, new_angle = self.serial_comm.jog_servo(servo_id, current_angle, -10)
+        
+        if success:
+            # 更新当前角度
+            self.servo_current_angles[servo_id] = new_angle
+            logger.info(f"舵机{servo_id} Jog- ({current_angle:.1f}° → {new_angle:.1f}°)")
+        else:
+            logger.error(f"舵机{servo_id} Jog-命令发送失败")
     
     def on_component_updated(self, component: Component):
         """部件参数更新"""
