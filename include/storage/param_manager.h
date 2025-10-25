@@ -29,12 +29,6 @@ bool param_manager_save(void);
 bool param_manager_load(void);
 
 /**
- * @brief 恢复出厂设置
- * @return true 成功, false 失败
- */
-bool param_manager_factory_reset(void);
-
-/**
  * @brief 应用参数到舵机
  * @return true 成功, false 失败
  */
@@ -57,12 +51,6 @@ bool param_manager_load_positions(void);
  * @return true 有效, false 无效
  */
 bool param_manager_has_saved_positions(void);
-
-/**
- * @brief 恢复出厂设置（清除Flash中的所有参数和位置数据）
- * @return true 成功, false 失败
- */
-bool param_manager_reset(void);
 
 /**
  * @brief 设置起始位置（从上位机设置所有舵机的起始角度）

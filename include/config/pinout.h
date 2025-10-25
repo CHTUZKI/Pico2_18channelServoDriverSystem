@@ -24,8 +24,8 @@
 #define SERVO_PIN_13    13      // 舵机13 - 左后腿大腿
 #define SERVO_PIN_14    14      // 舵机14 - 左后腿小腿
 #define SERVO_PIN_15    15      // 舵机15 - 右后腿髋关节
-#define SERVO_PIN_16    16      // 舵机16 - 右后腿大腿
-#define SERVO_PIN_17    17      // 舵机17 - 右后腿小腿
+#define SERVO_PIN_16    18      // 舵机16 - 右后腿大腿（使用GPIO18避免与GPIO0冲突）
+#define SERVO_PIN_17    19      // 舵机17 - 右后腿小腿（使用GPIO19避免与GPIO1冲突）
 
 // 舵机引脚数组 (方便遍历)
 static const uint8_t SERVO_PINS[18] = {

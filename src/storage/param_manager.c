@@ -62,9 +62,38 @@ bool param_manager_init(void) {
         // 加载成功，应用到舵机
         return param_manager_apply_to_servos();
     } else {
-        FLASH_DEBUG("Flash load failed, using defaults\n");
-        // 加载失败，使用默认参数
-        return param_manager_factory_reset();
+        FLASH_DEBUG("Flash load failed, initializing with defaults\n");
+        
+        // 清空参数结构
+        memset(&g_current_params, 0, sizeof(flash_params_t));
+        
+        // 设置默认校准参数
+        servo_calibration_t default_cal = {
+            .min_pulse_us = SERVO_MIN_PULSE_US,
+            .max_pulse_us = SERVO_MAX_PULSE_US,
+            .offset_us = 0,
+            .reverse = false
+        };
+        
+        for (int i = 0; i < SERVO_COUNT; i++) {
+            g_current_params.calibrations[i] = default_cal;
+        }
+        
+        // 不设置 positions_valid，保持默认 false
+        // 这样上电时将使用90度中位
+        
+        // 应用默认校准到舵机
+        if (!param_manager_apply_to_servos()) {
+            FLASH_DEBUG("Apply default calibration: FAIL\n");
+            return false;
+        }
+        FLASH_DEBUG("Apply default calibration: OK\n");
+        
+        // 保存到Flash
+        bool result = flash_save_params(&g_current_params);
+        FLASH_DEBUG("Save defaults to Flash: %s\n", result ? "OK" : "FAIL");
+        
+        return result;
     }
 }
 
@@ -89,43 +118,6 @@ bool param_manager_load(void) {
     
     // 应用到舵机
     return param_manager_apply_to_servos();
-}
-
-bool param_manager_factory_reset(void) {
-    FLASH_DEBUG("=== Factory Reset (First Boot) ===\n");
-    
-    // 清空参数结构
-    memset(&g_current_params, 0, sizeof(flash_params_t));
-    
-    // 设置默认校准参数
-    servo_calibration_t default_cal = {
-        .min_pulse_us = SERVO_MIN_PULSE_US,
-        .max_pulse_us = SERVO_MAX_PULSE_US,
-        .offset_us = 0,
-        .reverse = false
-    };
-    
-    FLASH_DEBUG("Default calibration: Pulse[%d-%d]us, Offset=0, Reverse=0\n",
-        SERVO_MIN_PULSE_US, SERVO_MAX_PULSE_US);
-    
-    for (int i = 0; i < SERVO_COUNT; i++) {
-        g_current_params.calibrations[i] = default_cal;
-    }
-    
-    // 应用到舵机
-    if (!param_manager_apply_to_servos()) {
-        FLASH_DEBUG("Apply to servos: FAIL\n");
-        FLASH_DEBUG("==================================\n\n");
-        return false;
-    }
-    FLASH_DEBUG("Apply to servos: OK\n");
-    
-    // 保存到Flash
-    bool result = flash_save_params(&g_current_params);
-    FLASH_DEBUG("Save to Flash: %s\n", result ? "OK" : "FAIL");
-    FLASH_DEBUG("==================================\n\n");
-    
-    return result;
 }
 
 bool param_manager_apply_to_servos(void) {
@@ -191,41 +183,6 @@ bool param_manager_has_saved_positions(void) {
         return temp_params.positions_valid;
     }
     return false;
-}
-
-bool param_manager_reset(void) {
-    FLASH_DEBUG("=== Factory Reset ===\n");
-    
-    // 恢复出厂设置：清除所有参数，恢复默认值
-    
-    // 1. 恢复默认校准参数
-    for (int i = 0; i < SERVO_COUNT; i++) {
-        g_current_params.calibrations[i].min_pulse_us = SERVO_MIN_PULSE_US;
-        g_current_params.calibrations[i].max_pulse_us = SERVO_MAX_PULSE_US;
-        g_current_params.calibrations[i].offset_us = 0;
-        g_current_params.calibrations[i].reverse = false;
-        
-        // 设置起始位置为90度
-        g_current_params.saved_positions[i] = 90.0f;
-    }
-    
-    // 2. 标记位置数据有效（这样上电会恢复到90度）
-    g_current_params.positions_valid = true;
-    FLASH_DEBUG("Default calibration: Pulse[%d-%d]us, Offset=0, Reverse=0\n",
-        SERVO_MIN_PULSE_US, SERVO_MAX_PULSE_US);
-    FLASH_DEBUG("Default start position: 90.0 deg (all servos)\n");
-    FLASH_DEBUG("Position data marked VALID\n");
-    
-    // 3. 保存到Flash
-    bool flash_ok = flash_save_params(&g_current_params);
-    FLASH_DEBUG("Flash save: %s\n", flash_ok ? "OK" : "FAIL");
-    
-    // 4. 应用默认校准到舵机
-    bool apply_ok = param_manager_apply_to_servos();
-    FLASH_DEBUG("Params apply: %s\n", apply_ok ? "OK" : "FAIL");
-    FLASH_DEBUG("=====================\n\n");
-    
-    return flash_ok && apply_ok;
 }
 
 bool param_manager_set_start_positions(const float *positions) {

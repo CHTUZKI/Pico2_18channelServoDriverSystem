@@ -18,8 +18,8 @@
 
 // ==================== 配置参数 ====================
 
-#define USB_BRIDGE_TX_BUFFER_SIZE   2048    // 发送缓冲区大小（Core0->Core1）
-#define USB_BRIDGE_RX_BUFFER_SIZE   512     // 接收缓冲区大小（Core1->Core0）
+#define USB_BRIDGE_TX_BUFFER_SIZE   32768   // 发送缓冲区大小（Core0->Core1）32KB
+#define USB_BRIDGE_RX_BUFFER_SIZE   4096    // 接收缓冲区大小（Core1->Core0）4KB
 #define USB_BRIDGE_MAX_PACKET       256     // 单个数据包最大长度
 
 // ==================== API函数 ====================

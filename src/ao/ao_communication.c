@@ -40,7 +40,6 @@ static void handle_move_all(const protocol_frame_t *frame);
 static void handle_get_single(const protocol_frame_t *frame);
 static void handle_get_all(const protocol_frame_t *frame);
 static void handle_enable(const protocol_frame_t *frame);
-static void handle_reset_factory(const protocol_frame_t *frame);
 static void handle_set_start_positions(const protocol_frame_t *frame);
 static void handle_ping(const protocol_frame_t *frame);
 
@@ -89,15 +88,32 @@ static QState AO_Communication_active(AO_Communication_t * const me, QEvt const 
         }
         
         case USB_RX_DATA_SIG: {
+            // 调试：确认事件触发
+            static uint32_t event_count = 0;
+            event_count++;
+            
+            #if DEBUG_USB
+            if (event_count % 100 == 0) {  // 每100次打印一次
+                LOG_DEBUG("[USB] Event #%lu triggered\n", event_count);
+            }
+            #endif
+            
             // USB操作由Core 1负责，这里只从Bridge读取
             me->usb_connected = true;  // USB Bridge启动后即可用
             
-            // 调试：每秒打印一次状态
+            // 调试：每秒打印一次状态（64KB缓冲区足够）
             static uint32_t poll_count = 0;
             poll_count++;
             #if DEBUG_USB
             if (poll_count % 100 == 0) {  // 10ms * 100 = 1s
-                LOG_DEBUG("[USB] Poll #%lu, Available: %lu\n", poll_count, usb_bridge_available());
+                LOG_DEBUG("[USB] Poll #%lu\n", poll_count);
+            }
+            #endif
+            
+            #if DEBUG_USB
+            uint32_t available = usb_bridge_available();
+            if (available > 0) {
+                LOG_DEBUG("[USB] Bridge has %lu bytes available\n", available);
             }
             #endif
             
@@ -113,19 +129,43 @@ static QState AO_Communication_active(AO_Communication_t * const me, QEvt const 
                 
                 #if DEBUG_USB
                 if (rx_count > 0) {
-                    LOG_DEBUG("[USB] RX: %lu bytes\n", rx_count);
+                    LOG_DEBUG("[USB] RX: %lu bytes, starting parse...\n", rx_count);
                 }
                 #endif
                 
                 uint8_t byte;
+                uint32_t parse_count = 0;
+                bool entered_loop = false;
+                
                 while (ring_buffer_get(&me->rx_buffer, &byte)) {
-                    if (protocol_parse_byte(&me->parser, byte)) {
+                    if (!entered_loop) {
+                        #if DEBUG_USB
+                        LOG_DEBUG("[USB] Entered parse loop, first byte: 0x%02X\n", byte);
+                        #endif
+                        entered_loop = true;
+                    }
+                    parse_count++;
+                    bool frame_complete = protocol_parse_byte(&me->parser, byte);
+                    
+                    #if DEBUG_USB
+                    if (frame_complete) {
+                        usb_bridge_printf("[USB] Frame parsing complete\n");
+                    }
+                    #endif
+                    
+                    if (frame_complete) {
                         const protocol_frame_t *frame = protocol_get_frame(&me->parser);
+                        
+                        #if DEBUG_USB
+                        if (frame == NULL) {
+                            usb_bridge_printf("[USB] ERROR: Frame is NULL after parsing!\n");
+                        }
+                        #endif
                         
                         if (frame != NULL) {
                             me->cmd_count++;
                             #if DEBUG_USB
-                            printf("[USB] CMD: 0x%02X, len=%d\n", frame->cmd, frame->len);
+                            usb_bridge_printf("[USB] CMD: 0x%02X, len=%d\n", frame->cmd, frame->len);
                             #endif
                             
                             switch (frame->cmd) {
@@ -159,9 +199,6 @@ static QState AO_Communication_active(AO_Communication_t * const me, QEvt const 
                                     }
                                     send_response(frame->id, frame->cmd, RESP_OK, NULL, 0);
                                     break;
-                                case CMD_RESET_FACTORY:
-                                    handle_reset_factory(frame);
-                                    break;
                                 case CMD_SET_START_POSITIONS:
                                     handle_set_start_positions(frame);
                                     break;
@@ -184,6 +221,15 @@ static QState AO_Communication_active(AO_Communication_t * const me, QEvt const 
                         protocol_parser_reset(&me->parser);
                     }
                 }
+                
+                #if DEBUG_USB
+                if (rx_count > 0 && !entered_loop) {
+                    LOG_DEBUG("[USB] WARNING: Had RX data but never entered parse loop!\n");
+                }
+                if (parse_count > 0) {
+                    LOG_DEBUG("[USB] Parsed %lu bytes total\n", parse_count);
+                }
+                #endif
                 
                 // 发送TX缓冲区中的数据
                 if (!ring_buffer_is_empty(&me->tx_buffer)) {
@@ -381,28 +427,6 @@ static void handle_enable(const protocol_frame_t *frame) {
     send_response(frame->id, frame->cmd, RESP_OK, NULL, 0);
 }
 
-static void handle_reset_factory(const protocol_frame_t *frame) {
-    #if DEBUG_USB
-    LOG_DEBUG("[CMD] RESET_FACTORY handler called\n");
-    #endif
-    
-    // 恢复出厂设置
-    bool reset_ok = param_manager_reset();
-    
-    // 设置所有舵机到90度中位
-    float center_angles[SERVO_COUNT];
-    for (int i = 0; i < SERVO_COUNT; i++) {
-        center_angles[i] = 90.0f;
-    }
-    bool servo_ok = servo_set_all_angles(center_angles);
-    
-    if (reset_ok && servo_ok) {
-        send_response(frame->id, frame->cmd, RESP_OK, NULL, 0);
-    } else {
-        send_response(frame->id, frame->cmd, RESP_ERROR, NULL, 0);
-    }
-}
-
 static void handle_set_start_positions(const protocol_frame_t *frame) {
     #if DEBUG_USB
     LOG_DEBUG("[CMD] SET_START_POSITIONS handler called\n");
@@ -418,6 +442,10 @@ static void handle_set_start_positions(const protocol_frame_t *frame) {
         return;
     }
     
+    #if DEBUG_USB
+    LOG_DEBUG("[CMD] Parsing 18 angles...\n");
+    #endif
+    
     // 解析18个角度
     float angles[SERVO_COUNT];
     for (int i = 0; i < SERVO_COUNT; i++) {
@@ -425,12 +453,26 @@ static void handle_set_start_positions(const protocol_frame_t *frame) {
         angles[i] = angle_x100 / 100.0f;
     }
     
+    #if DEBUG_USB
+    LOG_DEBUG("[CMD] Calling param_manager_set_start_positions...\n");
+    #endif
+    
     // 保存到Flash
     if (param_manager_set_start_positions(angles)) {
+        #if DEBUG_USB
+        LOG_DEBUG("[CMD] Set start positions: OK\n");
+        #endif
         send_response(frame->id, frame->cmd, RESP_OK, NULL, 0);
     } else {
+        #if DEBUG_USB
+        LOG_DEBUG("[CMD] Set start positions: FAIL\n");
+        #endif
         send_response(frame->id, frame->cmd, RESP_ERROR, NULL, 0);
     }
+    
+    #if DEBUG_USB
+    LOG_DEBUG("[CMD] SET_START_POSITIONS handler finished\n");
+    #endif
 }
 
 static void handle_ping(const protocol_frame_t *frame) {

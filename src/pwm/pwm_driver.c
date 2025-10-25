@@ -137,7 +137,7 @@ bool pwm_set_pulse(uint8_t channel, uint16_t pulse_us) {
         if (channel == 0) {
             // 验证PWM slice是否真的使能
             bool slice_enabled = pwm_is_enabled(slice);
-            PWM_DEBUG("[PWM] Ch%d: GPIO%d pulse=%dus, level=%d, slice%d=%s\n", 
+            PWM_DEBUG("[PWM] Ch%d: GPIO%d pulse=%dus, level=%d, slice%d=%s, CH_EN=1\n", 
                      channel, g_pwm_channels[channel].gpio, pulse_us, level, slice, 
                      slice_enabled ? "EN" : "DIS");
         } else if (pwm_debug_count % 20 == 0) {
@@ -149,7 +149,7 @@ bool pwm_set_pulse(uint8_t channel, uint16_t pulse_us) {
         static uint32_t pwm_debug_count_disabled = 0;
         pwm_debug_count_disabled++;
         if (channel == 0 || pwm_debug_count_disabled % 20 == 0) {
-            PWM_DEBUG("[PWM] Channel %d: pulse=%dus, level=%d, enabled=0\n", channel, pulse_us, level);
+            PWM_DEBUG("[PWM] Channel %d: pulse=%dus, level=0 (SET TO ZERO), CH_EN=0\n", channel, pulse_us);
         }
     }
     

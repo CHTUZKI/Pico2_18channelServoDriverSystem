@@ -192,10 +192,6 @@ class MainWindow(QMainWindow):
         set_start_pos_action.triggered.connect(self.set_start_positions)
         tools_menu.addAction(set_start_pos_action)
         
-        reset_factory_action = QAction("恢复出厂设置(&F)", self)
-        reset_factory_action.triggered.connect(self.reset_factory)
-        tools_menu.addAction(reset_factory_action)
-        
         # 帮助菜单
         help_menu = menubar.addMenu("帮助(&H)")
         
@@ -1313,38 +1309,6 @@ class MainWindow(QMainWindow):
                 else:
                     QMessageBox.critical(self, "失败", "保存失败！")
                     logger.error("保存起始位置失败")
-    
-    def reset_factory(self):
-        """恢复出厂设置"""
-        if not self.is_connected:
-            QMessageBox.warning(self, "警告", "请先连接设备！")
-            return
-        
-        # 二次确认对话框
-        reply = QMessageBox.warning(
-            self,
-            "恢复出厂设置",
-            "警告：此操作将恢复出厂设置！\n"
-            "- 所有舵机起始位置 → 90度\n"
-            "- 校准参数 → 默认值\n\n"
-            "确定要继续吗？",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        
-        if reply == QMessageBox.Yes:
-            if self.serial_comm.reset_factory():
-                QMessageBox.information(
-                    self, 
-                    "成功", 
-                    "恢复出厂设置成功！\n"
-                    "所有舵机已设置到90度中位。\n"
-                    "建议重启设备以确保所有参数生效。"
-                )
-                logger.info("恢复出厂设置成功")
-            else:
-                QMessageBox.critical(self, "失败", "恢复出厂设置失败！")
-                logger.error("恢复出厂设置失败")
     
     def open_default_params(self):
         """打开默认参数配置对话框"""

@@ -7,8 +7,17 @@
 #include "communication/protocol.h"
 #include "communication/crc16.h"
 #include "utils/error_handler.h"
+#include "utils/usb_bridge.h"
+#include "config/config.h"
 #include "pico/stdlib.h"
 #include <string.h>
+
+// 调试宏
+#if DEBUG_USB
+    #define PROTOCOL_DEBUG(fmt, ...) usb_bridge_printf("[PROTOCOL] " fmt, ##__VA_ARGS__)
+#else
+    #define PROTOCOL_DEBUG(fmt, ...)
+#endif
 
 void protocol_parser_init(protocol_parser_t *parser) {
     memset(parser, 0, sizeof(protocol_parser_t));
@@ -108,11 +117,14 @@ bool protocol_parse_byte(protocol_parser_t *parser, uint8_t byte) {
             
             if (calculated_crc == parser->frame.crc) {
                 // CRC校验通过
+                PROTOCOL_DEBUG("CRC OK (0x%04X)\n", calculated_crc);
                 parser->state = PARSE_STATE_COMPLETE;
                 parser->frame_count++;
                 return true;  // 帧接收完成
             } else {
                 // CRC错误
+                PROTOCOL_DEBUG("CRC FAIL! Calc=0x%04X, Recv=0x%04X, CMD=0x%02X, Len=%d\n", 
+                    calculated_crc, parser->frame.crc, parser->frame.cmd, parser->frame.len);
                 error_set(ERROR_COMM_CRC);
                 protocol_parser_reset(parser);
                 parser->error_count++;

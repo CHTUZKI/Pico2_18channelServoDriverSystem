@@ -29,7 +29,6 @@ class SerialComm(QObject):
     CMD_DISABLE = 0x21
     CMD_SAVE_FLASH = 0x30
     CMD_LOAD_FLASH = 0x31
-    CMD_RESET_FACTORY = 0x32
     CMD_SET_START_POSITIONS = 0x33
     CMD_PING = 0xFE
     CMD_ESTOP = 0xFF
@@ -289,11 +288,6 @@ class SerialComm(QObject):
         """从Flash加载参数"""
         logger.info("从Flash加载参数")
         return self.send_servo_command(self.CMD_LOAD_FLASH)
-    
-    def reset_factory(self) -> bool:
-        """恢复出厂设置（清除Flash参数和位置，恢复默认值）"""
-        logger.info("恢复出厂设置")
-        return self.send_servo_command(self.CMD_RESET_FACTORY)
     
     def set_start_positions(self, angles: list) -> bool:
         """设置起始位置

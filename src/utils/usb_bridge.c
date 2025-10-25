@@ -267,7 +267,7 @@ static void usb_bridge_core1_main(void) {
             printf("\n=== [CORE1-PWM] Monitor Report #%lu ===\n", pwm_report_count++);
             
             static const uint8_t MONITOR_PINS[] = {
-                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 18, 19
             };
             
             for (int i = 0; i < 18; i++) {
