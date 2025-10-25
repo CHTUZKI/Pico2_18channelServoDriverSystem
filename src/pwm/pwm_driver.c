@@ -8,6 +8,7 @@
 #include "config/pinout.h"
 #include "config/config.h"
 #include "utils/error_handler.h"
+#include "utils/usb_bridge.h"
 #include "pico/stdlib.h"
 #include "hardware/pwm.h"
 #include "hardware/clocks.h"
@@ -15,8 +16,9 @@
 #include <stdio.h>
 
 // ==================== 调试宏 ====================
+// 使用USB Bridge避免Core 0直接访问USB
 #if DEBUG_PWM
-    #define PWM_DEBUG(...) printf(__VA_ARGS__)
+    #define PWM_DEBUG(...) usb_bridge_printf(__VA_ARGS__)
 #else
     #define PWM_DEBUG(...) ((void)0)
 #endif

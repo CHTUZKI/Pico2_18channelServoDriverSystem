@@ -7,14 +7,16 @@
 #include "servo/servo_control.h"
 #include "pwm/pwm_driver.h"
 #include "utils/error_handler.h"
+#include "utils/usb_bridge.h"
 #include "config/config.h"
 #include <string.h>
 #include <math.h>
 #include <stdio.h>
 
 // ==================== 调试宏 ====================
+// 使用USB Bridge避免Core 0直接访问USB
 #if DEBUG_SERVO
-    #define SERVO_DEBUG(...) printf(__VA_ARGS__)
+    #define SERVO_DEBUG(...) usb_bridge_printf(__VA_ARGS__)
 #else
     #define SERVO_DEBUG(...) ((void)0)
 #endif

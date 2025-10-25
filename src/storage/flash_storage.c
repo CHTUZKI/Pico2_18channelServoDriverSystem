@@ -6,15 +6,16 @@
 
 #include "storage/flash_storage.h"
 #include "utils/error_handler.h"
+#include "utils/usb_bridge.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
 #include "pico/stdlib.h"
 #include <string.h>
 #include <stdio.h>
 
-// 调试宏
+// 调试宏 - 使用USB Bridge避免Core 0直接访问USB
 #if DEBUG_FLASH
-    #define FLASH_DEBUG(fmt, ...) printf("[FLASH] " fmt, ##__VA_ARGS__)
+    #define FLASH_DEBUG(fmt, ...) usb_bridge_printf("[FLASH] " fmt, ##__VA_ARGS__)
 #else
     #define FLASH_DEBUG(fmt, ...)
 #endif
