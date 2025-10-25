@@ -38,7 +38,7 @@ class ComponentEditDialog(QDialog):
                 font-size: 12px;
             }
             QLabel {
-                color: #333;
+                color: black;
                 font-size: 12px;
             }
             QGroupBox {
@@ -48,12 +48,13 @@ class ComponentEditDialog(QDialog):
                 margin-top: 1ex;
                 padding-top: 10px;
                 font-size: 12px;
+                background-color: white;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 10px;
                 padding: 0 5px 0 5px;
-                color: #333;
+                color: black;
             }
             QDoubleSpinBox, QSpinBox {
                 padding: 6px;
@@ -61,6 +62,28 @@ class ComponentEditDialog(QDialog):
                 border-radius: 3px;
                 font-size: 12px;
                 min-height: 20px;
+                background-color: white;
+                color: black;
+            }
+            QComboBox {
+                padding: 6px;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+                font-size: 12px;
+                min-height: 20px;
+                background-color: white;
+                color: black;
+            }
+            QComboBox::drop-down {
+                border: none;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 6px solid black;
+                width: 0px;
+                height: 0px;
             }
             QPushButton {
                 background-color: #4CAF50;
@@ -88,7 +111,7 @@ class ComponentEditDialog(QDialog):
         # 舵机选择
         motor_layout = QFormLayout()
         self.motor_label = QLabel(f"舵机{self.component.motor_id}")
-        self.motor_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #2c3e50;")
+        self.motor_label.setStyleSheet("font-size: 14px; font-weight: bold; color: black;")
         motor_layout.addRow("舵机:", self.motor_label)
         
         layout.addLayout(motor_layout)
@@ -172,7 +195,7 @@ class ComponentEditDialog(QDialog):
         
         # === 基于时间参数 ===
         self.time_label = QLabel("--- 基于时间参数 ---")
-        self.time_label.setStyleSheet("font-weight: bold; color: #2196F3; margin-top: 10px;")
+        self.time_label.setStyleSheet("font-weight: bold; color: black; margin-top: 10px;")
         form_layout.addRow(self.time_label)
         
         self.speed_ms_spin = QSpinBox()
@@ -183,7 +206,7 @@ class ComponentEditDialog(QDialog):
         
         # === 梯形速度参数 ===
         self.trapezoid_label = QLabel("--- 梯形速度参数 ---")
-        self.trapezoid_label.setStyleSheet("font-weight: bold; color: #4CAF50; margin-top: 10px;")
+        self.trapezoid_label.setStyleSheet("font-weight: bold; color: black; margin-top: 10px;")
         form_layout.addRow(self.trapezoid_label)
         
         self.velocity_spin = QDoubleSpinBox()
