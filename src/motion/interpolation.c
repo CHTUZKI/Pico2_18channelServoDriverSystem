@@ -12,6 +12,9 @@
 // 辅助宏：限制值在范围内
 #define CLAMP(x, min, max) ((x) < (min) ? (min) : ((x) > (max) ? (max) : (x)))
 
+// 前向声明
+static bool trajectory_auto_execute(interpolator_t *interp, uint32_t current_time);
+
 void interpolator_init(interpolator_t *interp) {
     memset(interp, 0, sizeof(interpolator_t));
     interp->state = MOTION_STATE_IDLE;

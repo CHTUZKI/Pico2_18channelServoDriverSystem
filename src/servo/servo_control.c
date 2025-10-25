@@ -76,6 +76,7 @@ uint16_t servo_angle_to_pulse(uint8_t id, float angle) {
     if (pulse < SERVO_MIN_PULSE_US) pulse = SERVO_MIN_PULSE_US;
     if (pulse > SERVO_MAX_PULSE_US) pulse = SERVO_MAX_PULSE_US;
     
+    #if DEBUG_SERVO
     // 调试：打印角度转换过程（避免浮点printf问题）
     static uint32_t angle_debug_count = 0;
     angle_debug_count++;
@@ -84,6 +85,7 @@ uint16_t servo_angle_to_pulse(uint8_t id, float angle) {
         SERVO_DEBUG("[SERVO] Angle conversion: %d.%d° -> %dμs (range: %d-%d)\n", 
                angle_int / 10, angle_int % 10, (uint16_t)pulse, cal->min_pulse_us, cal->max_pulse_us);
     }
+    #endif
     
     return (uint16_t)pulse;
 }

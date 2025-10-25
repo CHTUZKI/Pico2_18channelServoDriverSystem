@@ -49,10 +49,12 @@ bool param_manager_init(void) {
         // 打印保存的位置
         PARAM_DEBUG("\n--- Saved Positions (Valid: %d) ---\n", g_current_params.positions_valid);
         if (g_current_params.positions_valid) {
+            #if DEBUG_PARAM
             for (int i = 0; i < SERVO_COUNT; i++) {
                 int angle_int = (int)(g_current_params.saved_positions[i] * 10);
                 PARAM_DEBUG("Servo%d: %d.%d deg\n", i, angle_int / 10, angle_int % 10);
             }
+            #endif
         } else {
             PARAM_DEBUG("No valid position data\n");
         }
@@ -137,8 +139,10 @@ bool param_manager_save_positions(void) {
     // 读取当前所有舵机的位置
     for (int i = 0; i < SERVO_COUNT; i++) {
         g_current_params.saved_positions[i] = servo_get_angle(i);
+        #if DEBUG_PARAM
         int angle_int = (int)(g_current_params.saved_positions[i] * 10);
         PARAM_DEBUG("Servo%d: %d.%d deg\n", i, angle_int / 10, angle_int % 10);
+        #endif
     }
     
     // 标记位置数据有效
@@ -163,10 +167,12 @@ bool param_manager_load_positions(void) {
     }
     
     PARAM_DEBUG("Position data valid, applying to servos:\n");
+    #if DEBUG_PARAM
     for (int i = 0; i < SERVO_COUNT; i++) {
         int angle_int = (int)(g_current_params.saved_positions[i] * 10);
         PARAM_DEBUG("Servo%d: %d.%d deg\n", i, angle_int / 10, angle_int % 10);
     }
+    #endif
     
     // 应用位置到舵机
     bool result = servo_set_all_angles(g_current_params.saved_positions);
@@ -201,8 +207,10 @@ bool param_manager_set_start_positions(const float *positions) {
         
         g_current_params.saved_positions[i] = angle;
         
+        #if DEBUG_PARAM
         int angle_int = (int)(angle * 10);
         PARAM_DEBUG("Servo%d: %d.%d deg\n", i, angle_int / 10, angle_int % 10);
+        #endif
     }
     
     // 标记位置数据有效
