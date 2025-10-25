@@ -41,14 +41,22 @@ class SerialComm(QObject):
     CMD_LOAD_FLASH = 0x31
     CMD_SET_START_POSITIONS = 0x33
     
-    # 运动缓冲区管理命令（新架构）
-    CMD_ADD_MOTION_BLOCK = 0x40      # 添加运动指令到缓冲区
+    # 运动缓冲区管理命令（Look-Ahead Planner）
+    CMD_ADD_MOTION_BLOCK = 0x40      # 添加运动指令到缓冲区（位置模式）
     CMD_START_MOTION = 0x41          # 开始执行缓冲区指令
     CMD_STOP_MOTION = 0x42           # 停止执行
     CMD_PAUSE_MOTION = 0x43          # 暂停执行
     CMD_RESUME_MOTION = 0x44         # 恢复执行
     CMD_CLEAR_BUFFER = 0x45          # 清空缓冲区
     CMD_GET_BUFFER_STATUS = 0x46     # 查询缓冲区状态
+    
+    # 360度连续旋转舵机命令
+    CMD_ADD_CONTINUOUS_MOTION = 0x50  # 添加速度控制块到缓冲区
+    CMD_SERVO_360_SET_SPEED = 0x51   # 直接设置速度（即时命令）
+    CMD_SERVO_360_SOFT_STOP = 0x52   # 软停止
+    CMD_SERVO_360_SET_ACCEL = 0x53   # 设置加减速参数
+    CMD_SERVO_360_CALIBRATE = 0x54   # 校准中点
+    CMD_SERVO_360_GET_INFO = 0x55    # 查询360度舵机状态
     
     CMD_PING = 0xFE
     CMD_ESTOP = 0xFF
@@ -753,3 +761,131 @@ class SerialComm(QObject):
         data = bytes([servo_id])
         logger.info(f"查询轨迹信息: 舵机{servo_id}")
         return self.send_servo_command(self.CMD_TRAJ_GET_INFO, data)
+    
+    # ==================== 360度连续旋转舵机API ====================
+    
+    def add_continuous_motion(self, timestamp_ms: int, servo_id: int, 
+                            speed_pct: int, accel_rate: int = 50, 
+                            decel_rate: int = 0, duration_ms: int = 0) -> bool:
+        """
+        添加360度舵机速度控制块到缓冲区
+        
+        Args:
+            timestamp_ms: 执行时间戳（从start开始计时，单位ms）
+            servo_id: 舵机ID (0-17)
+            speed_pct: 目标速度百分比 (-100 到 +100)
+            accel_rate: 加速度 (%/秒，默认50)
+            decel_rate: 减速度 (%/秒，0表示与加速度相同）
+            duration_ms: 持续时间（毫秒，0表示持续到下一个块）
+        
+        Returns:
+            bool: 是否成功
+        """
+        # 数据格式：[timestamp_ms(4)] [servo_id(1)] [speed(1,signed)] [accel(1)] [decel(1)] [duration_ms(2)]
+        # total: 10字节
+        
+        # 限制速度范围
+        speed_pct = max(-100, min(100, speed_pct))
+        
+        data = bytearray()
+        
+        # timestamp_ms (4字节, 小端序)
+        data.extend(timestamp_ms.to_bytes(4, 'little'))
+        
+        # servo_id (1字节)
+        data.append(servo_id)
+        
+        # speed_pct (1字节, 有符号)
+        data.append(speed_pct & 0xFF)
+        
+        # accel_rate (1字节)
+        data.append(accel_rate & 0xFF)
+        
+        # decel_rate (1字节)
+        decel_val = decel_rate if decel_rate > 0 else 0
+        data.append(decel_val & 0xFF)
+        
+        # duration_ms (2字节, 小端序)
+        data.extend(duration_ms.to_bytes(2, 'little'))
+        
+        return self.send_servo_command(self.CMD_ADD_CONTINUOUS_MOTION, bytes(data))
+    
+    def servo_360_set_speed(self, servo_id: int, speed_pct: int) -> bool:
+        """
+        直接设置360度舵机速度（即时命令，不经过规划器）
+        
+        Args:
+            servo_id: 舵机ID (0-17)
+            speed_pct: 速度百分比 (-100 到 +100)
+        
+        Returns:
+            bool: 是否发送成功
+        """
+        # 限制速度范围
+        speed_pct = max(-100, min(100, speed_pct))
+        
+        # 数据格式：[servo_id(1)] [speed(1,signed)]
+        data = bytes([servo_id, speed_pct & 0xFF])
+        
+        logger.info(f"360度舵机{servo_id}设置速度: {speed_pct}%")
+        return self.send_servo_command(self.CMD_SERVO_360_SET_SPEED, data)
+    
+    def servo_360_soft_stop(self, servo_id: int = 0xFF) -> bool:
+        """
+        360度舵机软停止（平滑减速到0）
+        
+        Args:
+            servo_id: 舵机ID (0-17, 0xFF=全部)
+        
+        Returns:
+            bool: 是否发送成功
+        """
+        data = bytes([servo_id])
+        logger.info(f"360度舵机软停止: {'全部' if servo_id == 0xFF else f'S{servo_id}'}")
+        return self.send_servo_command(self.CMD_SERVO_360_SOFT_STOP, data)
+    
+    def servo_360_set_accel(self, servo_id: int, accel_rate: int, decel_rate: int = 0) -> bool:
+        """
+        设置360度舵机加减速参数
+        
+        Args:
+            servo_id: 舵机ID (0-17)
+            accel_rate: 加速度 (%/秒, 1-100)
+            decel_rate: 减速度 (%/秒, 0表示与加速度相同)
+        
+        Returns:
+            bool: 是否发送成功
+        """
+        decel_val = decel_rate if decel_rate > 0 else accel_rate
+        data = bytes([servo_id, accel_rate & 0xFF, decel_val & 0xFF])
+        
+        logger.info(f"设置360度舵机{servo_id}加减速: accel={accel_rate}, decel={decel_val}")
+        return self.send_servo_command(self.CMD_SERVO_360_SET_ACCEL, data)
+    
+    def servo_360_get_info(self, servo_id: int) -> dict:
+        """
+        查询360度舵机状态
+        
+        Args:
+            servo_id: 舵机ID (0-17)
+        
+        Returns:
+            dict: {'current_speed': 当前速度, 'target_speed': 目标速度, 
+                   'enabled': 是否使能, 'moving': 是否运动中}
+        """
+        data = bytes([servo_id])
+        response = self.send_servo_command(self.CMD_SERVO_360_GET_INFO, data)
+        
+        if response and len(response) >= 4:
+            # 响应数据：[current_speed(1)] [target_speed(1)] [enabled(1)] [moving(1)]
+            current_speed = int.from_bytes([response[0]], 'little', signed=True)
+            target_speed = int.from_bytes([response[1]], 'little', signed=True)
+            
+            return {
+                'current_speed': current_speed,
+                'target_speed': target_speed,
+                'enabled': bool(response[2]),
+                'moving': bool(response[3])
+            }
+        
+        return {'current_speed': 0, 'target_speed': 0, 'enabled': False, 'moving': False}

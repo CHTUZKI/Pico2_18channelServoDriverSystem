@@ -46,14 +46,22 @@
 #define CMD_LOAD_FLASH          0x31    // 从Flash加载参数
 #define CMD_SET_START_POSITIONS 0x33    // 设置起始位置
 
-// 运动缓冲区管理命令（新架构）
-#define CMD_ADD_MOTION_BLOCK    0x40    // 添加运动指令到缓冲区
+// 运动缓冲区管理命令（新架构 - Look-Ahead Planner）
+#define CMD_ADD_MOTION_BLOCK    0x40    // 添加运动指令到缓冲区（位置模式）
 #define CMD_START_MOTION        0x41    // 开始执行缓冲区指令
 #define CMD_STOP_MOTION         0x42    // 停止执行
 #define CMD_PAUSE_MOTION        0x43    // 暂停执行
 #define CMD_RESUME_MOTION       0x44    // 恢复执行
 #define CMD_CLEAR_BUFFER        0x45    // 清空缓冲区
 #define CMD_GET_BUFFER_STATUS   0x46    // 查询缓冲区状态
+
+// 360度连续旋转舵机命令（新增）
+#define CMD_ADD_CONTINUOUS_MOTION  0x50    // 添加速度控制块到缓冲区
+#define CMD_SERVO_360_SET_SPEED    0x51    // 直接设置速度（即时命令）
+#define CMD_SERVO_360_SOFT_STOP    0x52    // 软停止
+#define CMD_SERVO_360_SET_ACCEL    0x53    // 设置加减速参数
+#define CMD_SERVO_360_CALIBRATE    0x54    // 校准中点
+#define CMD_SERVO_360_GET_INFO     0x55    // 查询360度舵机状态
 
 // 系统命令
 #define CMD_PING                0xFE    // 心跳/连接检测

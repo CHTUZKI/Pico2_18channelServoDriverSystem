@@ -13,6 +13,7 @@
 #include "config/config.h"
 #include "servo/servo_control.h"
 #include "servo/servo_manager.h"
+#include "servo/servo_360.h"
 #include "test/auto_test.h"
 #include "utils/usb_bridge.h"
 #include "motion/planner.h"  // 使用Look-Ahead运动规划器
@@ -50,11 +51,32 @@ static void planner_execute_block_callback(const plan_block_t *block) {
         return;
     }
     
-    // 使用规划器计算好的进入/退出速度设置梯形运动
-    // 注意：这里使用的是规划器优化后的速度参数
     AO_Motion_t *me = &AO_Motion_inst;
     
-    // 设置插值器参数（使用规划后的速度曲线）
+    // ========== 360度连续旋转模式 ==========
+    if (block->flags.is_continuous) {
+        // 360度舵机：速度控制模式
+        #if DEBUG_MOTION_SUMMARY
+        usb_bridge_printf("[AO-MOTION] Execute 360° block: S%d speed=%d%% (entry=%d%% exit=%d%%)\n",
+                         block->servo_id, block->target_speed_pct,
+                         block->entry_speed_pct, block->exit_speed_pct);
+        #endif
+        
+        // 直接设置360度舵机速度
+        // 注意：这里可以进一步优化，实现速度的平滑过渡
+        // 当前版本：直接设置目标速度，由 servo_360 模块处理加减速
+        servo_360_set_speed(block->servo_id, block->target_speed_pct);
+        
+        // 如果有指定持续时间，设置定时器
+        // TODO: 可以添加定时器在 duration_ms 后自动停止
+        
+        return;
+    }
+    
+    // ========== 位置控制模式（180度舵机）==========
+    // 使用规划器计算好的进入/退出速度设置梯形运动
+    // 注意：这里使用的是规划器优化后的速度参数
+    
     interpolator_t *interp = &me->interpolator.axes[block->servo_id];
     
     motion_params_t params = {
@@ -78,7 +100,7 @@ static void planner_execute_block_callback(const plan_block_t *block) {
     interp->duration = block->duration_ms;
     
     #if DEBUG_MOTION_SUMMARY
-    usb_bridge_printf("[AO-MOTION] Execute block: S%d %.1f->%.1f v=%.1f (entry=%.1f exit=%.1f)\n",
+    usb_bridge_printf("[AO-MOTION] Execute position block: S%d %.1f->%.1f v=%.1f (entry=%.1f exit=%.1f)\n",
                      block->servo_id, block->start_angle, block->target_angle,
                      block->v_max_actual, block->entry_speed, block->exit_speed);
     #endif

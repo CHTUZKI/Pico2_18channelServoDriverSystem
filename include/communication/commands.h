@@ -194,5 +194,42 @@ void cmd_clear_buffer(const protocol_frame_t *frame, command_result_t *result);
  */
 void cmd_get_buffer_status(const protocol_frame_t *frame, command_result_t *result);
 
+// ==================== 360度连续旋转舵机命令 ====================
+
+/**
+ * @brief 处理ADD_CONTINUOUS_MOTION命令（添加360度舵机速度块）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_add_continuous_motion(const protocol_frame_t *frame, command_result_t *result);
+
+/**
+ * @brief 处理SERVO_360_SET_SPEED命令（直接设置速度）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_servo_360_set_speed(const protocol_frame_t *frame, command_result_t *result);
+
+/**
+ * @brief 处理SERVO_360_SOFT_STOP命令（软停止）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_servo_360_soft_stop(const protocol_frame_t *frame, command_result_t *result);
+
+/**
+ * @brief 处理SERVO_360_SET_ACCEL命令（设置加减速）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_servo_360_set_accel(const protocol_frame_t *frame, command_result_t *result);
+
+/**
+ * @brief 处理SERVO_360_GET_INFO命令（查询状态）
+ * @param frame 协议帧
+ * @param result 处理结果
+ */
+void cmd_servo_360_get_info(const protocol_frame_t *frame, command_result_t *result);
+
 #endif // COMMANDS_H
 

@@ -143,6 +143,27 @@ bool commands_process(const protocol_frame_t *frame, command_result_t *result) {
             cmd_get_buffer_status(frame, result);
             break;
             
+        // 360度连续旋转舵机命令
+        case CMD_ADD_CONTINUOUS_MOTION:
+            cmd_add_continuous_motion(frame, result);
+            break;
+            
+        case CMD_SERVO_360_SET_SPEED:
+            cmd_servo_360_set_speed(frame, result);
+            break;
+            
+        case CMD_SERVO_360_SOFT_STOP:
+            cmd_servo_360_soft_stop(frame, result);
+            break;
+            
+        case CMD_SERVO_360_SET_ACCEL:
+            cmd_servo_360_set_accel(frame, result);
+            break;
+            
+        case CMD_SERVO_360_GET_INFO:
+            cmd_servo_360_get_info(frame, result);
+            break;
+            
         default:
             #if DEBUG_COMMAND
             CMD_DEBUG("[CMD] ERROR: Invalid command=0x%02X (not recognized)\n", frame->cmd);

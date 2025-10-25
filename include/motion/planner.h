@@ -41,7 +41,8 @@ typedef struct {
     uint8_t recalculate : 1;        // 需要重新规划
     uint8_t nominal_length : 1;     // 能否达到最大速度
     uint8_t junction_valid : 1;     // 衔接速度已计算
-    uint8_t reserved : 5;           // 保留
+    uint8_t is_continuous : 1;      // 是否为360度连续旋转模式
+    uint8_t reserved : 4;           // 保留
 } plan_block_flags_t;
 
 /**
@@ -74,6 +75,13 @@ typedef struct {
     float t_decel;                  // 减速阶段时间（秒）
     float v_max_actual;             // 实际达到的最大速度
     uint32_t duration_ms;           // 总时间（毫秒）
+    
+    // ========== 360度连续旋转参数（新增）==========
+    int8_t target_speed_pct;        // 目标速度百分比 (-100 到 +100)
+    int8_t entry_speed_pct;         // 进入速度百分比（规划器计算）
+    int8_t exit_speed_pct;          // 退出速度百分比（规划器计算）
+    uint8_t accel_rate;             // 加速度（%/秒）
+    uint8_t decel_rate;             // 减速度（%/秒）
     
     // ========== 状态标志 ==========
     plan_block_flags_t flags;       // 标志位
@@ -130,7 +138,7 @@ motion_planner_t* planner_get_instance(void);
 // ==================== 缓冲区管理 ====================
 
 /**
- * @brief 添加运动块到规划器
+ * @brief 添加运动块到规划器（位置模式 - 180度舵机）
  * @param timestamp_ms 时间戳
  * @param servo_id 舵机ID
  * @param target_angle 目标角度
@@ -145,6 +153,23 @@ bool planner_add_motion(uint32_t timestamp_ms,
                        float velocity,
                        float acceleration,
                        float deceleration);
+
+/**
+ * @brief 添加360度舵机速度控制块到规划器（速度模式 - 360度舵机）
+ * @param timestamp_ms 时间戳
+ * @param servo_id 舵机ID
+ * @param target_speed_pct 目标速度百分比 (-100 到 +100)
+ * @param accel_rate 加速度 (%/秒)
+ * @param decel_rate 减速度 (%/秒，0表示使用加速度）
+ * @param duration_ms 持续时间（毫秒，0表示持续到下一个块）
+ * @return true 成功, false 失败（缓冲区满）
+ */
+bool planner_add_continuous_motion(uint32_t timestamp_ms,
+                                   uint8_t servo_id,
+                                   int8_t target_speed_pct,
+                                   uint8_t accel_rate,
+                                   uint8_t decel_rate,
+                                   uint32_t duration_ms);
 
 /**
  * @brief 清空规划器缓冲区

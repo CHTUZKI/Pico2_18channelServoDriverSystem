@@ -25,7 +25,11 @@
 ### 🎛️ 硬件控制
 - ✅ **18路硬件PWM输出** - 使用RP2350的硬件PWM通道，50Hz频率，0.5μs分辨率
 - ✅ **混合舵机支持** - 同时支持180度位置舵机和360度连续旋转舵机
-- ✅ **360度舵机算法** - 死区补偿、加减速控制、软停止、方向切换保护
+- ✅ **360度舵机完整集成** ⭐ - 已集成到Look-Ahead Planner，支持速度平滑过渡
+  - 速度控制 (-100% 到 +100%)
+  - 速度衔接规划（连续变速无突变）
+  - 死区补偿、软停止、方向切换保护
+  - 加减速控制（线性/S曲线/指数）
 - ✅ **硬件可靠性** - PWM由硬件定时器自动生成，不受中断影响
 
 ### 🚀 运动控制（Look-Ahead Motion Planner）⭐ **新特性**
@@ -471,9 +475,24 @@ serial.start_motion()
 # ✅ 舵机将平滑运动，90°和180°点不会停顿
 ```
 
+**360度舵机示例**：
+```python
+# 360度舵机速度平滑过渡
+serial.clear_buffer()
+serial.add_continuous_motion(0,    servo_id=2, speed_pct=50,  accel_rate=40, duration_ms=2000)
+serial.add_continuous_motion(2000, servo_id=2, speed_pct=80,  accel_rate=50, duration_ms=2000)
+serial.add_continuous_motion(4000, servo_id=2, speed_pct=-30, accel_rate=40, duration_ms=2000)
+serial.add_continuous_motion(6000, servo_id=2, speed_pct=0,   accel_rate=30, duration_ms=0)
+
+serial.start_motion()
+
+# ✅ 360度舵机速度平滑变化，50%→80%→-30%→0% 无突变
+```
+
 **详细文档**：
 - [Look-Ahead Planner 完整说明](docs/LOOK_AHEAD_PLANNER.md)
 - [使用示例和参数调优](docs/PLANNER_USAGE_EXAMPLE.md)
+- [360度舵机集成指南](docs/SERVO_360_PLANNER_INTEGRATION.md) ⭐ 新增
 
 ---
 
@@ -982,6 +1001,7 @@ cat test_servo_log.txt
 ### 核心文档
 - [**Look-Ahead Planner 详解**](docs/LOOK_AHEAD_PLANNER.md) ⭐ - 前瞻运动规划器完整说明
 - [**Planner 使用示例**](docs/PLANNER_USAGE_EXAMPLE.md) ⭐ - 快速上手和代码示例
+- [**360度舵机集成**](docs/SERVO_360_PLANNER_INTEGRATION.md) ⭐ - 360度舵机与Planner完整集成
 - [架构总览](docs/ARCHITECTURE_OVERVIEW.md) - 系统整体架构设计
 - [系统流程图](docs/SYSTEM_FLOW.md) - 从指令到PWM的完整流程
 

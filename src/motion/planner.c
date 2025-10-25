@@ -193,6 +193,104 @@ bool planner_add_motion(uint32_t timestamp_ms,
     return true;
 }
 
+bool planner_add_continuous_motion(uint32_t timestamp_ms,
+                                   uint8_t servo_id,
+                                   int8_t target_speed_pct,
+                                   uint8_t accel_rate,
+                                   uint8_t decel_rate,
+                                   uint32_t duration_ms) {
+    // 检查缓冲区是否已满
+    if (g_planner.count >= PLANNER_BUFFER_SIZE) {
+        PLANNER_DEBUG("[PLANNER] Buffer full, cannot add continuous motion\n");
+        return false;
+    }
+    
+    // 检查参数
+    if (servo_id >= SERVO_COUNT) {
+        return false;
+    }
+    
+    // 限制速度范围
+    if (target_speed_pct > 100) target_speed_pct = 100;
+    if (target_speed_pct < -100) target_speed_pct = -100;
+    
+    // 获取当前舵机的速度状态
+    int8_t start_speed = 0;
+    if (g_planner.count > 0 && g_planner.last_servo_id == servo_id) {
+        // 如果是同一个舵机的连续运动，获取上一个块的退出速度
+        plan_block_t *last_block = &g_planner.blocks[PREV_INDEX(g_planner.head)];
+        if (last_block->flags.is_continuous) {
+            start_speed = last_block->exit_speed_pct;
+        }
+    }
+    
+    // 获取写入位置
+    plan_block_t *block = &g_planner.blocks[g_planner.head];
+    memset(block, 0, sizeof(plan_block_t));
+    
+    // ========== 填充基本参数 ==========
+    block->timestamp_ms = timestamp_ms;
+    block->servo_id = servo_id;
+    block->flags.is_continuous = true;
+    
+    // ========== 填充360度舵机参数 ==========
+    block->target_speed_pct = target_speed_pct;
+    block->entry_speed_pct = start_speed;          // 初始假设从上一个速度开始
+    block->exit_speed_pct = target_speed_pct;      // 初始假设达到目标速度
+    block->accel_rate = (accel_rate > 0) ? accel_rate : 50;  // 默认50%/秒
+    block->decel_rate = (decel_rate > 0) ? decel_rate : block->accel_rate;
+    
+    // ========== 计算加速时间 ==========
+    // 速度变化量（百分比）
+    int16_t speed_change = abs(target_speed_pct - start_speed);
+    
+    // 加速时间（秒） = 速度变化 / 加速度
+    float accel_time = (float)speed_change / (float)block->accel_rate;
+    
+    // 如果指定了持续时间，使用指定时间
+    if (duration_ms > 0) {
+        block->duration_ms = duration_ms;
+        block->t_accel = (accel_time < (float)duration_ms / 1000.0f) ? accel_time : (float)duration_ms / 1000.0f;
+        block->t_const = ((float)duration_ms / 1000.0f) - block->t_accel;
+        block->t_decel = 0.0f;
+    } else {
+        // 没有指定持续时间，只计算加速时间
+        block->duration_ms = (uint32_t)(accel_time * 1000.0f);
+        block->t_accel = accel_time;
+        block->t_const = 0.0f;
+        block->t_decel = 0.0f;
+    }
+    
+    // ========== 初始化标志位 ==========
+    block->flags.recalculate = true;
+    block->flags.junction_valid = false;
+    block->flags.nominal_length = (block->t_const > 0);
+    block->valid = true;
+    
+    // 这些字段对360度舵机无意义，但为了兼容性填充
+    block->start_angle = 0.0f;
+    block->target_angle = 0.0f;
+    block->distance = 0.0f;
+    block->abs_distance = 0.0f;
+    block->max_velocity = 0.0f;
+    block->acceleration = 0.0f;
+    block->deceleration = 0.0f;
+    
+    // ========== 更新缓冲区状态 ==========
+    g_planner.head = NEXT_INDEX(g_planner.head);
+    g_planner.count++;
+    g_planner.last_servo_id = servo_id;
+    
+    // ========== 触发重新规划 ==========
+    g_planner.recalculate_flag = true;
+    
+    PLANNER_DEBUG("[PLANNER] Added continuous: t=%d S%d speed=%d%%, accel=%d, count=%d\n",
+                 (int)timestamp_ms, servo_id, target_speed_pct, 
+                 block->accel_rate, g_planner.count);
+    
+    return true;
+}
+
 void planner_clear(void) {
     g_planner.head = 0;
     g_planner.tail = 0;
@@ -507,9 +605,9 @@ static void planner_forward_pass(void) {
 /**
  * @brief 计算两个块之间的衔接速度（Junction Speed）
  * 
- * 参考 grblHAL 的实现：
- *   考虑运动方向变化、加速度限制
- *   使用 Junction Deviation 参数控制平滑度
+ * 支持两种模式：
+ *   1. 位置模式（180度舵机）：计算角度速度衔接
+ *   2. 速度模式（360度舵机）：计算速度百分比衔接
  */
 float planner_calculate_junction_speed(const plan_block_t *prev, 
                                        const plan_block_t *current) {
@@ -522,36 +620,60 @@ float planner_calculate_junction_speed(const plan_block_t *prev,
         return 0.0f;
     }
     
-    // 如果任一块距离为0，不能衔接
-    if (prev->abs_distance < 0.01f || current->abs_distance < 0.01f) {
-        return MIN_JUNCTION_SPEED;
+    // ========== 360度连续旋转模式 ==========
+    if (prev->flags.is_continuous && current->flags.is_continuous) {
+        // 两个速度块之间的衔接
+        // 计算速度变化量
+        int16_t speed_diff = abs(current->target_speed_pct - prev->target_speed_pct);
+        
+        // 如果速度变化很小（< 5%），可以直接衔接
+        if (speed_diff < 5) {
+            return (float)MIN(abs(prev->target_speed_pct), abs(current->target_speed_pct));
+        }
+        
+        // 速度变化较大，计算安全衔接速度
+        // 取两段速度的中间值作为衔接点
+        int8_t junction_speed_pct = (prev->target_speed_pct + current->target_speed_pct) / 2;
+        
+        PLANNER_DEBUG("[JUNCTION-360] S%d: speed=%d%% (prev=%d%% curr=%d%%)\n",
+                     prev->servo_id, junction_speed_pct, 
+                     prev->target_speed_pct, current->target_speed_pct);
+        
+        return (float)abs(junction_speed_pct);
     }
     
-    // 计算方向变化（简化版：角度域的"转角"）
-    // 在角度空间中，连续运动的方向是一致的（都是角度变化）
-    // 所以我们主要考虑速度变化率
+    // ========== 位置控制模式（180度舵机）==========
+    if (!prev->flags.is_continuous && !current->flags.is_continuous) {
+        // 如果任一块距离为0，不能衔接
+        if (prev->abs_distance < 0.01f || current->abs_distance < 0.01f) {
+            return MIN_JUNCTION_SPEED;
+        }
+        
+        // 取两段运动的较小加速度作为限制
+        float a_min = MIN(prev->acceleration, current->acceleration);
+        
+        // 简化的衔接速度计算：
+        // 基于两段运动的速度和加速度
+        float v_junction = MIN(prev->nominal_speed, current->nominal_speed);
+        
+        // 应用 Junction Deviation：
+        // v_junction = sqrt(2 * a * deviation * distance)
+        float avg_distance = (prev->abs_distance + current->abs_distance) * 0.5f;
+        float v_junction_dev = sqrtf(2.0f * a_min * JUNCTION_DEVIATION * avg_distance);
+        
+        v_junction = MIN(v_junction, v_junction_dev);
+        v_junction = MAX(v_junction, MIN_JUNCTION_SPEED);
+        
+        PLANNER_DEBUG("[JUNCTION-POS] S%d: v=%.1f (prev_v=%.1f curr_v=%.1f a=%.1f)\n",
+                     prev->servo_id, v_junction, prev->nominal_speed, 
+                     current->nominal_speed, a_min);
+        
+        return v_junction;
+    }
     
-    // 取两段运动的较小加速度作为限制
-    float a_min = MIN(prev->acceleration, current->acceleration);
-    
-    // 简化的衔接速度计算：
-    // 基于两段运动的速度和加速度
-    float v_junction = MIN(prev->nominal_speed, current->nominal_speed);
-    
-    // 应用 Junction Deviation：
-    // v_junction = sqrt(2 * a * deviation * distance)
-    // 这里使用简化公式，保证足够的减速距离
-    float avg_distance = (prev->abs_distance + current->abs_distance) * 0.5f;
-    float v_junction_dev = sqrtf(2.0f * a_min * JUNCTION_DEVIATION * avg_distance);
-    
-    v_junction = MIN(v_junction, v_junction_dev);
-    v_junction = MAX(v_junction, MIN_JUNCTION_SPEED);
-    
-    PLANNER_DEBUG("[JUNCTION] S%d: v=%.1f (prev_v=%.1f curr_v=%.1f a=%.1f)\n",
-                 prev->servo_id, v_junction, prev->nominal_speed, 
-                 current->nominal_speed, a_min);
-    
-    return v_junction;
+    // ========== 混合模式（位置+速度）==========
+    // 不同模式之间必须停止
+    return 0.0f;
 }
 
 /**
